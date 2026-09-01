@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth/session";
 import { parseRosterCsv, replaceAllowlist, clearAllowlist } from "@/lib/allowlist";
+import { regenerateRosterImportToken } from "@/lib/settings";
 
 export async function importAllowlistAction(formData: FormData) {
   await requireAdmin();
@@ -25,4 +26,26 @@ export async function clearAllowlistAction() {
   await requireAdmin();
   await clearAllowlist();
   redirect("/admin/settings?cleared=1");
+}
+
+/** CSVの中身を貼り付けて取込(ブックマークレットが使えない場合の代替) */
+export async function pasteImportAction(formData: FormData) {
+  await requireAdmin();
+  const text = String(formData.get("csv") || "");
+  if (text.length > 5 * 1024 * 1024) {
+    redirect("/admin/settings?error=too_large");
+  }
+  const rows = parseRosterCsv(text);
+  if (rows.length === 0) {
+    redirect("/admin/settings?error=no_emails");
+  }
+  const count = await replaceAllowlist(rows);
+  redirect(`/admin/settings?imported=${count}`);
+}
+
+/** ブックマークレットの取込トークンを再生成(古いブックマークレットは無効になる) */
+export async function regenerateImportTokenAction() {
+  await requireAdmin();
+  await regenerateRosterImportToken();
+  redirect("/admin/settings?token=1");
 }

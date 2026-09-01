@@ -2,7 +2,13 @@
 
 import { useState } from "react";
 
-export function CopyButton({ text }: { text: string }) {
+export function CopyButton({
+  text,
+  label = "告知文をコピー",
+}: {
+  text: string;
+  label?: string;
+}) {
   const [copied, setCopied] = useState(false);
   return (
     <button
@@ -13,7 +19,7 @@ export function CopyButton({ text }: { text: string }) {
         setTimeout(() => setCopied(false), 2000);
       }}
     >
-      {copied ? "コピーしました ✓" : "告知文をコピー"}
+      {copied ? "コピーしました ✓" : label}
     </button>
   );
 }
