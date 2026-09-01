@@ -4,6 +4,20 @@ import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth/session";
 import { parseRosterCsv, replaceAllowlist, clearAllowlist } from "@/lib/allowlist";
 
+// 日本語サービスのCSVは Shift_JIS(cp932)が多いため、UTF-8 で読めない場合は
+// Shift_JIS として読み直す(メールは ASCII なのでどちらでも取れるが、表示名が化ける)
+function decodeCsv(buf: ArrayBuffer): string {
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(buf);
+  } catch {
+    try {
+      return new TextDecoder("shift_jis").decode(buf);
+    } catch {
+      return new TextDecoder("utf-8").decode(buf); // 最後の手段(化け許容)
+    }
+  }
+}
+
 export async function importAllowlistAction(formData: FormData) {
   await requireAdmin();
   const file = formData.get("file");
@@ -13,7 +27,7 @@ export async function importAllowlistAction(formData: FormData) {
   if (file.size > 5 * 1024 * 1024) {
     redirect("/admin/settings?error=too_large");
   }
-  const rows = parseRosterCsv(await (file as File).text());
+  const rows = parseRosterCsv(decodeCsv(await (file as File).arrayBuffer()));
   if (rows.length === 0) {
     redirect("/admin/settings?error=no_emails");
   }
