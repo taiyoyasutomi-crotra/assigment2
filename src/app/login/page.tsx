@@ -6,16 +6,11 @@ export const dynamic = "force-dynamic";
 
 const errorMessages: Record<string, string> = {
   "1": "ログインに失敗しました",
-  invalid_code: "参加コードが正しくありません",
   invalid_email: "メールアドレスの形式が正しくありません",
   send_failed: "メールの送信に失敗しました。時間をおいて再度お試しください",
   invalid_link: "ログインリンクが無効か、有効期限(15分)が切れています。もう一度お試しください",
-  code_unset:
-    "参加コードがまだ設定されていません。運営者にお問い合わせください",
   not_member:
-    "このメールアドレスは会員名簿に見つかりませんでした。Fans' に登録しているメールアドレスでお試しください",
-  not_member_or_code:
-    "このメールアドレスは会員名簿になく、参加コードも一致しませんでした。Fans' 登録のメールアドレスを使うか、正しい参加コードを入力してください",
+    "このメールアドレスは会員名簿に見つかりませんでした。Fans' に登録しているメールアドレスでお試しください。最近入会された場合は名簿が未更新の可能性があるため、運営者にお問い合わせください",
 };
 
 export default async function LoginPage({
@@ -31,8 +26,8 @@ export default async function LoginPage({
       <main className="container">
         <h1>ログイン</h1>
         <p className="muted">
-          Fans' に登録しているメールアドレスを入力してください。ログイン用のリンクをメールでお送りします。
-          名簿に登録がない場合は、会員限定投稿でお知らせしている「参加コード」もあわせて入力してください。
+          Fans' に登録しているメールアドレスを入力してください。会員名簿と照合のうえ、
+          ログイン用のリンクをメールでお送りします。
         </p>
         {error && (
           <div className="notice error">{errorMessages[error] ?? "エラーが発生しました"}</div>
@@ -52,10 +47,6 @@ export default async function LoginPage({
               <label className="field">
                 メールアドレス
                 <input type="email" name="email" required placeholder="you@example.com" />
-              </label>
-              <label className="field">
-                参加コード(名簿に登録済みの方は不要 / Fans' の会員限定投稿に記載)
-                <input type="text" name="joinCode" autoComplete="off" />
               </label>
               <button type="submit">ログインリンクを送る</button>
             </form>

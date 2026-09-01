@@ -1,17 +1,10 @@
 // Fans' の会員名簿(CSVエクスポート)取り込み。
-// 名簿は「任意の強化オプション」: 空なら参加コードのみで会員判定し、
-// 取り込むと「参加コード + 名簿照合」になる。CSV の表示名があれば
-// 初回登録時の表示名として使う(Fans' 側の表示名を引き継げる)。
+// 会員判定の正はこの名簿: 名簿に載っているメールアドレスだけがログインできる。
+// CSV の表示名があれば初回登録時の表示名として使う(Fans' 側の表示名を引き継げる)。
+// 新会員の追加・退会者の除外は最新 CSV の再取り込みで反映する(洗い替え)。
 import { query } from "@/lib/db";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-export async function allowlistCount(): Promise<number> {
-  const rows = await query<{ c: number }>(
-    "select count(*)::int as c from member_allowlist"
-  );
-  return rows[0].c;
-}
 
 export async function allowlistSummary(): Promise<{
   count: number;

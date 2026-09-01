@@ -16,13 +16,12 @@ export async function loginAction(formData: FormData) {
   redirect(member.role === "admin" ? "/admin/events" : "/");
 }
 
-// fans_code 認証: 参加コードを検証してログインリンクをメール送信
+// fans_code 認証: 会員名簿と照合してログインリンクをメール送信
 export async function requestLoginLinkAction(formData: FormData) {
   if (authMode() !== "fans_code") redirect("/login");
   const result = await requestLoginLink({
     email: String(formData.get("email") || ""),
     displayName: String(formData.get("displayName") || ""),
-    joinCode: String(formData.get("joinCode") || ""),
   });
   if (!result.ok) redirect(`/login?error=${result.error}`);
   redirect("/login?sent=1");

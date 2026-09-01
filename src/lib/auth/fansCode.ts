@@ -1,20 +1,19 @@
-// Fans'(fansnet.jp)会員向けの本番用認証: 参加コード + メール確認リンク。
+// Fans'(fansnet.jp)会員向けの本番用認証: 会員名簿(CSV)照合 + メール確認リンク。
 //
 // 調査結果(2026-09-01): Fans' は第三者向けの公開 API / OAuth / SSO を提供していない。
 // そのため「Fans' アカウントでログイン」は直接実装できない。代わりに、
-//   運営者が Fans' の会員限定投稿で「参加コード」を告知
-//   → コードを見られるのは課金会員のみ
-//   → 本システムでメール + 参加コードを入力 → 確認リンクをメール送信
+//   運営者が Fans' 管理画面からエクスポートした会員CSVを名簿として取り込み
+//   → 名簿に載っているメールアドレスにのみ確認リンクを送信
 //   → リンクを開いた時点で会員として登録・ログイン
-// という形で、会員判定を Fans' のペイウォールに委ねる。
-// TODO(hearing:Q1): ベンダー(ロココ社)への連携可否の正式確認、X(Twitter)ログイン案の要否
-// TODO(hearing:Q2): 退会者の無効化運用(参加コードのローテーション / is_active の手動更新)
-import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+// とする。会員判定の正は常に名簿(CSV)。
+// ※「参加コード」方式は流出時に非会員が入れてしまうため不採用(顧客判断 2026-09-01)
+// TODO(hearing:Q1): ベンダー(ロココ社)への連携可否の正式確認(API があれば CSV 再取込を自動化できる)
+// TODO(hearing:Q2): CSV 再取込の運用頻度(新会員の反映・退会者の除外はいずれも再取込で行う)
+import { createHash, randomBytes } from "node:crypto";
 import { query, withTransaction } from "@/lib/db";
 import { appUrl } from "@/lib/config";
 import { getNotifyChannel } from "@/lib/notify/channel";
-import { getJoinCode } from "@/lib/settings";
-import { allowlistCount, allowlistLookup } from "@/lib/allowlist";
+import { allowlistLookup } from "@/lib/allowlist";
 import type { Member } from "./provider";
 
 const TOKEN_TTL_MINUTES = 15;
@@ -27,44 +26,22 @@ function hashToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }
 
-async function joinCodeMatches(input: string): Promise<boolean | "unset"> {
-  // 参加コードは管理画面(認証設定)で運営者が設定・自動生成する
-  const expected = await getJoinCode();
-  if (!expected) return "unset";
-  const a = Buffer.from(input);
-  const b = Buffer.from(expected);
-  if (a.length !== b.length) return false;
-  return timingSafeEqual(a, b);
-}
-
 export type RequestLinkResult =
   | { ok: true }
-  | {
-      ok: false;
-      error:
-        | "invalid_code"
-        | "invalid_email"
-        | "send_failed"
-        | "code_unset"
-        | "not_member"
-        | "not_member_or_code";
-    };
+  | { ok: false; error: "invalid_email" | "send_failed" | "not_member" };
 
-/** 参加コードを検証し、ログイン用の確認リンクをメールで送る */
+/** 会員名簿と照合し、ログイン用の確認リンクをメールで送る */
 export async function requestLoginLink(input: {
   email: string;
   displayName: string;
-  joinCode: string;
 }): Promise<RequestLinkResult> {
   const email = input.email.trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return { ok: false, error: "invalid_email" };
   }
 
-  // 会員判定は「名簿 または 参加コード」:
-  //   1. 会員名簿(Fans' の CSV)に載っているメール → それだけで会員(コード不要)
-  //   2. 名簿に載っていない → 参加コードが合えば通す(名簿なし運用・名簿未更新の新会員の救済)
-  //   3. 運営者(role=admin)は Fans' の名簿に載らないため常に免除
+  // 会員判定は名簿(Fans' の CSV)照合のみ。
+  // 運営者(role=admin)は Fans' の名簿に載らないため免除する
   const isAdmin =
     (
       await query(
@@ -72,21 +49,8 @@ export async function requestLoginLink(input: {
         [email]
       )
     ).length > 0;
-  const onRoster =
-    (await allowlistCount()) > 0 && (await allowlistLookup(email)) !== null;
-
-  if (!isAdmin && !onRoster) {
-    const codeCheck = await joinCodeMatches(input.joinCode.trim());
-    if (codeCheck === "unset") {
-      // コード未設定: 名簿運用のみ
-      return { ok: false, error: (await allowlistCount()) > 0 ? "not_member" : "code_unset" };
-    }
-    if (!codeCheck) {
-      return {
-        ok: false,
-        error: (await allowlistCount()) > 0 ? "not_member_or_code" : "invalid_code",
-      };
-    }
+  if (!isAdmin && !(await allowlistLookup(email))) {
+    return { ok: false, error: "not_member" };
   }
 
   const token = randomBytes(24).toString("base64url");
