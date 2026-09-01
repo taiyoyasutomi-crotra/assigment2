@@ -14,6 +14,8 @@ const errorMessages: Record<string, string> = {
     "参加コードがまだ設定されていません。運営者にお問い合わせください",
   not_member:
     "このメールアドレスは会員名簿に見つかりませんでした。Fans' に登録しているメールアドレスでお試しください",
+  not_member_or_code:
+    "このメールアドレスは会員名簿になく、参加コードも一致しませんでした。Fans' 登録のメールアドレスを使うか、正しい参加コードを入力してください",
 };
 
 export default async function LoginPage({
@@ -29,9 +31,8 @@ export default async function LoginPage({
       <main className="container">
         <h1>ログイン</h1>
         <p className="muted">
-          Fans'
-          の会員限定投稿でお知らせしている「参加コード」と、連絡を受け取るメールアドレスを入力してください。
-          ログイン用のリンクをメールでお送りします。
+          Fans' に登録しているメールアドレスを入力してください。ログイン用のリンクをメールでお送りします。
+          名簿に登録がない場合は、会員限定投稿でお知らせしている「参加コード」もあわせて入力してください。
         </p>
         {error && (
           <div className="notice error">{errorMessages[error] ?? "エラーが発生しました"}</div>
@@ -53,8 +54,8 @@ export default async function LoginPage({
                 <input type="email" name="email" required placeholder="you@example.com" />
               </label>
               <label className="field">
-                参加コード(Fans' の会員限定投稿に記載)
-                <input type="text" name="joinCode" required autoComplete="off" />
+                参加コード(名簿に登録済みの方は不要 / Fans' の会員限定投稿に記載)
+                <input type="text" name="joinCode" autoComplete="off" />
               </label>
               <button type="submit">ログインリンクを送る</button>
             </form>

@@ -63,8 +63,8 @@ export default async function AdminSettingsPage({
       {sp.saved && <div className="notice success">参加コードを保存しました。</div>}
       {sp.imported && (
         <div className="notice success">
-          会員名簿を取り込みました({sp.imported}件)。以後、参加コードに加えて
-          名簿にあるメールアドレスのみログインリンクを受け取れます。
+          会員名簿を取り込みました({sp.imported}件)。名簿にあるメールアドレスは
+          参加コードなしでログインできます。
         </div>
       )}
       {sp.cleared && (
@@ -90,19 +90,29 @@ export default async function AdminSettingsPage({
         )}
       </div>
 
+      <div className="card">
+        <p style={{ marginTop: 0 }}>
+          会員判定は<strong>「会員名簿 または 参加コード」</strong>です。
+          名簿に載っているメールアドレスはコード不要でログインできます。
+          参加コードは、名簿を使わない運用や、名簿の取り込み後に増えた新会員の救済用です。
+          どちらか一方だけの運用でも構いません。
+        </p>
+      </div>
+
       <h2>参加コード</h2>
       <div className="card">
         <p>
           Fans' の<strong>会員限定投稿</strong>でこのコードを告知してください。
           コードを見られるのは会員だけなので、「コードを知っている = 会員」として扱います。
           退会者対策として、定期的またはイベントごとの変更をおすすめします(変更は即時反映・再デプロイ不要)。
+          名簿だけで運用する場合、コードは未設定のままでも構いません。
         </p>
         <p>
           現在のコード:{" "}
           {code ? (
             <strong style={{ fontSize: "1.2rem" }}>{code}</strong>
           ) : (
-            <span className="badge lost">未設定(設定するまで会員はログインできません)</span>
+            <span className="badge neutral">未設定(名簿に載っている会員のみログイン可能)</span>
           )}
         </p>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end" }}>
@@ -146,14 +156,15 @@ export default async function AdminSettingsPage({
       <h2>会員名簿(任意)</h2>
       <div className="card">
         <p>
-          Fans' の管理画面からエクスポートした会員CSVを取り込むと、判定が
-          <strong>「参加コード + 名簿のメールアドレス照合」</strong>に強化されます。
+          Fans' の管理画面からエクスポートした会員CSVを取り込むと、名簿に載っている
+          メールアドレスは<strong>参加コードなしで</strong>ログインできるようになります。
           CSVに表示名が含まれていれば、初回ログイン時の表示名として自動で使われます。
         </p>
         <p className="muted">
-          取り込みは必須ではありません。名簿が空の間は参加コードのみで判定します。
+          取り込みは必須ではありません(名簿なし+参加コードのみの運用も可)。
           取り込むたびに名簿は全て入れ替わります(洗い替え)。列の並びは自動判定するので、
           Fans' からエクスポートしたCSVをそのまま選択してください。
+          名簿取り込み後に増えた新会員は、名簿を再取り込みするか、参加コードでログインできます。
         </p>
         <p>
           現在の名簿: <strong>{roster.count}件</strong>

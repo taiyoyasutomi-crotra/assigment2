@@ -41,7 +41,13 @@ export type RequestLinkResult =
   | { ok: true }
   | {
       ok: false;
-      error: "invalid_code" | "invalid_email" | "send_failed" | "code_unset" | "not_member";
+      error:
+        | "invalid_code"
+        | "invalid_email"
+        | "send_failed"
+        | "code_unset"
+        | "not_member"
+        | "not_member_or_code";
     };
 
 /** 参加コードを検証し、ログイン用の確認リンクをメールで送る */
@@ -54,21 +60,32 @@ export async function requestLoginLink(input: {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return { ok: false, error: "invalid_email" };
   }
-  const codeCheck = await joinCodeMatches(input.joinCode.trim());
-  if (codeCheck === "unset") return { ok: false, error: "code_unset" };
-  if (!codeCheck) return { ok: false, error: "invalid_code" };
 
-  // 会員名簿(Fans' の CSV)が取り込まれている場合は名簿照合も行う。
-  // 名簿が空なら参加コードのみで判定(取り込みは任意)。
-  // 運営者(role=admin)は Fans' の名簿に載らないため照合を免除する
-  if ((await allowlistCount()) > 0) {
-    const admin = await query(
-      "select 1 from members where lower(email) = $1 and role = 'admin' and is_active",
-      [email]
-    );
-    if (admin.length === 0) {
-      const entry = await allowlistLookup(email);
-      if (!entry) return { ok: false, error: "not_member" };
+  // 会員判定は「名簿 または 参加コード」:
+  //   1. 会員名簿(Fans' の CSV)に載っているメール → それだけで会員(コード不要)
+  //   2. 名簿に載っていない → 参加コードが合えば通す(名簿なし運用・名簿未更新の新会員の救済)
+  //   3. 運営者(role=admin)は Fans' の名簿に載らないため常に免除
+  const isAdmin =
+    (
+      await query(
+        "select 1 from members where lower(email) = $1 and role = 'admin' and is_active",
+        [email]
+      )
+    ).length > 0;
+  const onRoster =
+    (await allowlistCount()) > 0 && (await allowlistLookup(email)) !== null;
+
+  if (!isAdmin && !onRoster) {
+    const codeCheck = await joinCodeMatches(input.joinCode.trim());
+    if (codeCheck === "unset") {
+      // コード未設定: 名簿運用のみ
+      return { ok: false, error: (await allowlistCount()) > 0 ? "not_member" : "code_unset" };
+    }
+    if (!codeCheck) {
+      return {
+        ok: false,
+        error: (await allowlistCount()) > 0 ? "not_member_or_code" : "invalid_code",
+      };
     }
   }
 
