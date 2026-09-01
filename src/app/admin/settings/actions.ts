@@ -3,7 +3,6 @@
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth/session";
 import { parseRosterCsv, replaceAllowlist, clearAllowlist } from "@/lib/allowlist";
-import { regenerateRosterImportToken } from "@/lib/settings";
 
 export async function importAllowlistAction(formData: FormData) {
   await requireAdmin();
@@ -41,11 +40,4 @@ export async function pasteImportAction(formData: FormData) {
   }
   const count = await replaceAllowlist(rows);
   redirect(`/admin/settings?imported=${count}`);
-}
-
-/** ブックマークレットの取込トークンを再生成(古いブックマークレットは無効になる) */
-export async function regenerateImportTokenAction() {
-  await requireAdmin();
-  await regenerateRosterImportToken();
-  redirect("/admin/settings?token=1");
 }

@@ -6,13 +6,10 @@ import { appUrl } from "@/lib/config";
 import { formatJst } from "@/lib/format";
 import { CopyButton } from "@/components/CopyButton";
 import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
-import { getRosterImportToken } from "@/lib/settings";
-import { buildBookmarkletHref, buildBookmarkletSource } from "@/lib/bookmarklet";
 import {
   importAllowlistAction,
   clearAllowlistAction,
   pasteImportAction,
-  regenerateImportTokenAction,
 } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -45,17 +42,12 @@ export default async function AdminSettingsPage({
     imported?: string;
     cleared?: string;
     error?: string;
-    token?: string;
   }>;
 }) {
   await requireAdmin();
   const sp = await searchParams;
   const mode = authMode();
   const roster = await allowlistSummary();
-  const importToken = await getRosterImportToken();
-  const importApiUrl = `${appUrl()}/api/roster/import`;
-  const bookmarkletHref = buildBookmarkletHref(importApiUrl, importToken);
-  const bookmarkletSource = `javascript:${buildBookmarkletSource(importApiUrl, importToken)}`;
 
   return (
     <main className="container">
@@ -73,12 +65,6 @@ export default async function AdminSettingsPage({
       {sp.cleared && (
         <div className="notice error">
           会員名簿を削除しました。名簿を取り込むまで、会員はログインできません。
-        </div>
-      )}
-      {sp.token && (
-        <div className="notice success">
-          取込トークンを再生成しました。古いブックマークレットは使えなくなるため、
-          下の新しいブックマークレットを登録し直してください。
         </div>
       )}
       {sp.error && (
@@ -105,14 +91,17 @@ export default async function AdminSettingsPage({
       <h2>会員名簿</h2>
       <div className="card">
         <p>
-          Fans' の管理画面からエクスポートした会員CSVを取り込んでください。
+          会員のメールアドレス一覧(CSVファイル)を取り込んでください。
           名簿に載っているメールアドレスだけがログインできます(運営者は除く)。
-          CSVに表示名が含まれていれば、初回ログイン時の表示名として自動で使われます。
+          CSVに表示名の列が含まれていれば、初回ログイン時の表示名として自動で使われます。
         </p>
         <p className="muted">
           取り込むたびに名簿は全て入れ替わります(洗い替え)。新会員の追加・退会者の除外は、
           最新のCSVを再取り込みするだけで反映されます。列の並びは自動判定するので、
-          エクスポートしたCSVをそのまま選択してください。
+          お手元の会員リストのCSVをそのまま選択してください
+          {/* TODO(hearing:Q2): 名簿CSVの入手元と更新頻度。Fans' にはエクスポート機能が
+              ないことを確認済みのため、運営者が別途保持している会員連絡先リストを想定 */}
+          。
         </p>
         <p>
           現在の名簿:{" "}
@@ -148,47 +137,12 @@ export default async function AdminSettingsPage({
         )}
       </div>
 
-      <h2>ワンクリック取込(ブックマークレット)</h2>
-      <div className="card">
-        <p>
-          毎回のCSVダウンロード→アップロードを、<strong>ブックマーク1クリック</strong>に
-          短縮できます。仕組み: Fans' にログイン済みの自分のブラウザ上で、開いている
-          会員一覧ページからCSVを取得し、このシステムに直接送信します
-          (パスワードの保存や自動巡回は行いません)。
-        </p>
-        <p className="muted">使い方(初回設定は1分):</p>
-        <ol className="muted" style={{ marginTop: 0 }}>
-          <li>下の「📥 Fans'名簿を取り込む」を、ブラウザのブックマークバーへドラッグして登録</li>
-          <li>Fans' の管理画面で会員一覧(CSVエクスポート)のページを開く</li>
-          <li>登録したブックマークをクリック → 「名簿を更新しました(n件)」と表示されたら完了</li>
-        </ol>
-        <p
-          dangerouslySetInnerHTML={{
-            __html: `<a class="button" href="${bookmarkletHref}" onclick="alert('このリンクはクリックではなく、ブックマークバーへドラッグして登録してください'); return false;">📥 Fans'名簿を取り込む</a>`,
-          }}
-        />
-        <p className="muted">
-          ドラッグで登録できない場合は、下のコードをコピーして、ブックマークのURL欄に
-          貼り付けてください。
-        </p>
-        <CopyButton text={bookmarkletSource} label="ブックマークレットのコードをコピー" />
-        <div style={{ marginTop: 16 }}>
-          <form action={regenerateImportTokenAction}>
-            <ConfirmSubmitButton
-              className="secondary small"
-              message="取込トークンを再生成します。登録済みのブックマークレットは無効になり、登録し直しが必要です。よろしいですか?"
-            >
-              取込トークンを再生成する(ブックマークレットが漏れた場合)
-            </ConfirmSubmitButton>
-          </form>
-        </div>
-      </div>
-
       <h2>貼り付けで取込(代替手段)</h2>
       <div className="card">
         <p className="muted">
-          ブックマークレットが動かない場合は、CSVファイルをメモ帳等で開いて内容をコピーし、
-          ここに貼り付けて取り込めます。
+          ファイル選択が使えない場合は、CSVファイルをメモ帳等で開いて内容をコピーし、
+          ここに貼り付けて取り込めます。スプレッドシートの表を直接コピーして
+          貼り付けても構いません(タブ区切りにも対応)。
         </p>
         <form action={pasteImportAction} className="stack" style={{ maxWidth: "100%" }}>
           <textarea
