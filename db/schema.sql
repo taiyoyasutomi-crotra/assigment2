@@ -1,6 +1,8 @@
 -- ファンミーティング参加受付システム スキーマ
 -- 仕様: docs/mock-instructions.md 6章
 
+drop table if exists member_allowlist cascade;
+drop table if exists app_settings cascade;
 drop table if exists login_tokens cascade;
 drop table if exists notifications cascade;
 drop table if exists tickets cascade;
@@ -82,6 +84,21 @@ create table login_tokens (
   created_at   timestamptz not null default now()
 );
 create index idx_login_tokens_email on login_tokens(email);
+
+-- 運営者が管理画面から変更できる設定(参加コード等)
+create table app_settings (
+  key        text primary key,
+  value      text not null,
+  updated_at timestamptz not null default now()
+);
+
+-- Fans' の会員名簿(CSVエクスポート)から取り込む許可リスト。
+-- 空の場合は参加コードのみで判定(取り込みは任意の強化オプション)
+create table member_allowlist (
+  email        text primary key,   -- 小文字で保存
+  display_name text,
+  imported_at  timestamptz not null default now()
+);
 
 create index idx_applications_event on applications(event_id);
 create index idx_applications_member on applications(member_id);

@@ -16,7 +16,12 @@ export default async function AdminEventsPage({
   const events = await listEvents();
   return (
     <main className="container">
-      <h1>イベント管理</h1>
+      <h1>
+        イベント管理{" "}
+        <Link href="/admin/settings" style={{ fontSize: "0.9rem", fontWeight: 400 }}>
+          認証設定
+        </Link>
+      </h1>
       {error && <div className="notice error">{error}</div>}
 
       <h2>イベント一覧</h2>

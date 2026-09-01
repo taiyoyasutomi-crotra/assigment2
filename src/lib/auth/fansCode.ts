@@ -13,6 +13,8 @@ import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { query, withTransaction } from "@/lib/db";
 import { appUrl } from "@/lib/config";
 import { getNotifyChannel } from "@/lib/notify/channel";
+import { getJoinCode } from "@/lib/settings";
+import { allowlistCount, allowlistLookup } from "@/lib/allowlist";
 import type { Member } from "./provider";
 
 const TOKEN_TTL_MINUTES = 15;
@@ -25,9 +27,10 @@ function hashToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }
 
-function joinCodeMatches(input: string): boolean {
-  const expected = process.env.FANS_JOIN_CODE || "";
-  if (!expected) return false;
+async function joinCodeMatches(input: string): Promise<boolean | "unset"> {
+  // 参加コードは管理画面(認証設定)で運営者が設定・自動生成する
+  const expected = await getJoinCode();
+  if (!expected) return "unset";
   const a = Buffer.from(input);
   const b = Buffer.from(expected);
   if (a.length !== b.length) return false;
@@ -36,7 +39,10 @@ function joinCodeMatches(input: string): boolean {
 
 export type RequestLinkResult =
   | { ok: true }
-  | { ok: false; error: "invalid_code" | "invalid_email" | "send_failed" };
+  | {
+      ok: false;
+      error: "invalid_code" | "invalid_email" | "send_failed" | "code_unset" | "not_member";
+    };
 
 /** 参加コードを検証し、ログイン用の確認リンクをメールで送る */
 export async function requestLoginLink(input: {
@@ -48,8 +54,22 @@ export async function requestLoginLink(input: {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return { ok: false, error: "invalid_email" };
   }
-  if (!joinCodeMatches(input.joinCode.trim())) {
-    return { ok: false, error: "invalid_code" };
+  const codeCheck = await joinCodeMatches(input.joinCode.trim());
+  if (codeCheck === "unset") return { ok: false, error: "code_unset" };
+  if (!codeCheck) return { ok: false, error: "invalid_code" };
+
+  // 会員名簿(Fans' の CSV)が取り込まれている場合は名簿照合も行う。
+  // 名簿が空なら参加コードのみで判定(取り込みは任意)。
+  // 運営者(role=admin)は Fans' の名簿に載らないため照合を免除する
+  if ((await allowlistCount()) > 0) {
+    const admin = await query(
+      "select 1 from members where lower(email) = $1 and role = 'admin' and is_active",
+      [email]
+    );
+    if (admin.length === 0) {
+      const entry = await allowlistLookup(email);
+      if (!entry) return { ok: false, error: "not_member" };
+    }
   }
 
   const token = randomBytes(24).toString("base64url");
@@ -109,12 +129,20 @@ export async function verifyLoginToken(token: string): Promise<VerifyResult> {
       member = existing.rows[0];
     } else {
       // 初回ログイン: 会員として自動登録。
-      // Fans' に API がないため表示名は自己申告(TODO(hearing:Q1))
+      // 表示名は 名簿(Fans' CSV)の表示名 > 自己申告 > メールのローカル部 の順で採用
+      const roster = await client.query(
+        "select display_name from member_allowlist where email = $1",
+        [row.email]
+      );
+      const displayName =
+        roster.rows[0]?.display_name ||
+        row.display_name ||
+        row.email.split("@")[0];
       const created = await client.query(
         `insert into members (display_name, email, role)
          values ($1, $2, 'member')
          returning id, display_name, email, role, is_active`,
-        [row.display_name || row.email.split("@")[0], row.email]
+        [displayName, row.email]
       );
       member = created.rows[0];
     }
