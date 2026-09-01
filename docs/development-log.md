@@ -71,8 +71,15 @@
 
 未実施: 本番 URL(Vercel + Supabase)での通し確認、スマホ実機のカメラ QR 読取、Resend 実メール到達。
 
+### デプロイ(実施済み)
+
+- 本番 URL: **https://fanmeeting-checkin.vercel.app**(Vercel、関数リージョン sin1)
+- DB: Supabase(ap-southeast-1)。Vercel からは Transaction Pooler(port 6543)接続
+- 環境変数(Vercel Production): `DATABASE_URL` `DATABASE_SSL` `AUTH_SECRET` `APP_URL` `MAIL_FROM` 設定済み
+- 本番 DB にスキーマ適用・シード投入済み。本番 URL でログイン → 管理画面表示を確認
+
 ### 残作業(Day 2 午前)
 
-- Vercel + Supabase 本番環境の作成とデプロイ(URL 発行)
-- 本番 URL でのデモシナリオ通し確認(特に F3 並列申込・F6 スマホ実機の QR 読取)
-- Resend の API キー設定と実メール到達確認
+- 本番 URL でのデモシナリオ通し確認(特に F6 スマホ実機の QR 読取)
+- Resend の API キー設定と実メール到達確認(未設定の間はコンソール記録のみ)
+- デモ直前に `npm run db:seed`(本番 DATABASE_URL 向き)で初期状態に戻す
