@@ -1,0 +1,66 @@
+// セッション管理。HMAC 署名付き Cookie に会員 ID を保持する。
+// 認証方式(provider.ts)を差し替えてもここはそのまま使える。
+import { createHmac, timingSafeEqual } from "node:crypto";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { authProvider, type Member } from "./provider";
+
+const COOKIE_NAME = "fm_session";
+const SESSION_HOURS = 24 * 7;
+
+function secret(): string {
+  return process.env.AUTH_SECRET || "dev-secret-change-me";
+}
+
+function sign(payload: string): string {
+  return createHmac("sha256", secret()).update(payload).digest("base64url");
+}
+
+export async function createSession(memberId: string) {
+  const exp = Date.now() + SESSION_HOURS * 3600 * 1000;
+  const payload = `${memberId}.${exp}`;
+  const value = `${payload}.${sign(payload)}`;
+  const store = await cookies();
+  store.set(COOKIE_NAME, value, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    maxAge: SESSION_HOURS * 3600,
+    path: "/",
+  });
+}
+
+export async function destroySession() {
+  const store = await cookies();
+  store.delete(COOKIE_NAME);
+}
+
+export async function getSessionMember(): Promise<Member | null> {
+  const store = await cookies();
+  const raw = store.get(COOKIE_NAME)?.value;
+  if (!raw) return null;
+  const parts = raw.split(".");
+  if (parts.length !== 3) return null;
+  const [memberId, expStr, sig] = parts;
+  const expected = sign(`${memberId}.${expStr}`);
+  const a = Buffer.from(sig);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
+  if (Number(expStr) < Date.now()) return null;
+  return authProvider.getMember(memberId);
+}
+
+/** ログイン必須ページ用。未ログインなら /login へ */
+export async function requireMember(): Promise<Member> {
+  const member = await getSessionMember();
+  if (!member) redirect("/login");
+  return member;
+}
+
+/** 管理画面・管理系アクション用。運営者ロール以外は弾く(サーバー側判定) */
+export async function requireAdmin(): Promise<Member> {
+  const member = await getSessionMember();
+  if (!member) redirect("/login");
+  if (member.role !== "admin") redirect("/");
+  return member;
+}
