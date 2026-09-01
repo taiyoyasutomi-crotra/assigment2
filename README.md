@@ -27,8 +27,27 @@
 
 認証と通知は差し替え前提のアダプタ構造:
 
-- 認証: [src/lib/auth/provider.ts](src/lib/auth/provider.ts)(モックはシード会員から選んでログイン → 本実装でコミュニティ基盤の OAuth に差し替え)
+- 認証: [src/lib/auth/provider.ts](src/lib/auth/provider.ts) / [src/lib/auth/fansCode.ts](src/lib/auth/fansCode.ts)
 - 通知: [src/lib/notify/channel.ts](src/lib/notify/channel.ts)(モックはメール → 別チャネルはここに追加)
+
+## 認証モード(AUTH_MODE)
+
+対象コミュニティ基盤は Fans'(https://www.fansnet.jp/ ロココ株式会社)。
+**Fans' は第三者向けの公開 API / OAuth / SSO を提供していない**(2026-09 調査)ため、
+「Fans' アカウントでログイン」は直接実装できない。代わりに2モードを用意:
+
+| モード | 用途 | ログイン方法 |
+|---|---|---|
+| `mock`(既定) | 開発・デモ | シード会員から選んでワンクリック |
+| `fans_code` | 本番運用 | メール + **参加コード** → 確認リンクをメール送信 → クリックでログイン |
+
+fans_code の会員判定: 参加コード(`FANS_JOIN_CODE`)を **Fans' の会員限定投稿で告知**する。
+コードを見られるのは課金会員のみなので、「コードを知っている = Fans' 会員」という判定を
+Fans' のペイウォールに委ねる。運営者は事前に `members.role='admin'` の行を自分のメール
+アドレスで作っておくと、同じフローで管理画面に入れる。
+
+切替: 環境変数 `AUTH_MODE=fans_code` と `FANS_JOIN_CODE=<コード>` を設定して再デプロイ。
+退会者対策はコードの定期変更 + `members.is_active=false`(TODO(hearing:Q2))。
 
 ## セットアップ
 
