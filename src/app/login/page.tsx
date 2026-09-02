@@ -3,7 +3,12 @@ import { redirect } from "next/navigation";
 import { authProvider } from "@/lib/auth/provider";
 import { authMode } from "@/lib/auth/fansCode";
 import { getSessionMember } from "@/lib/auth/session";
-import { loginAction, requestLoginLinkAction, requestSignupAction } from "./actions";
+import {
+  loginAction,
+  passwordLoginAction,
+  requestLoginLinkAction,
+  requestSignupAction,
+} from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +21,10 @@ const errorMessages: Record<string, string> = {
     "このメールアドレスは登録されていません。「アカウント作成」からご登録ください",
   already_registered:
     "このメールアドレスは登録済みです。「ログイン」からお進みください",
+  invalid_credentials: "メールアドレスまたはパスワードが正しくありません",
+  password_not_set:
+    "このアカウントはパスワードが未設定です。「メールのリンクでログイン」からログインし、申込状況ページでパスワードを設定してください",
+  weak_password: "パスワードは8文字以上にしてください",
 };
 
 export default async function LoginPage({
@@ -31,15 +40,18 @@ export default async function LoginPage({
   if (current) redirect(current.role === "admin" ? "/admin/events" : "/");
 
   if (mode === "fans_code") {
-    const isSignup = tab === "signup";
+    const view = tab === "signup" ? "signup" : tab === "link" ? "link" : "login";
     return (
       <main className="container">
-        <h1>{isSignup ? "アカウント作成" : "ログイン"}</h1>
+        <h1>{view === "signup" ? "アカウント作成" : "ログイン"}</h1>
         <div className="tab-row">
-          <Link href="/login" className={`tab ${!isSignup ? "active" : ""}`}>
+          <Link href="/login" className={`tab ${view === "login" ? "active" : ""}`}>
             ログイン
           </Link>
-          <Link href="/login?tab=signup" className={`tab ${isSignup ? "active" : ""}`}>
+          <Link
+            href="/login?tab=signup"
+            className={`tab ${view === "signup" ? "active" : ""}`}
+          >
             アカウント作成
           </Link>
         </div>
@@ -48,12 +60,12 @@ export default async function LoginPage({
         )}
         {sent ? (
           <div className="notice success">
-            {isSignup
+            {view === "signup"
               ? "アカウント登録用のリンクをメールで送信しました(有効期限15分)。リンクを開くと登録が完了します。"
               : "ログインリンクをメールで送信しました(有効期限15分)。メールをご確認ください。"}
             届かない場合は迷惑メールフォルダもご確認ください。
           </div>
-        ) : isSignup ? (
+        ) : view === "signup" ? (
           <div className="card">
             <p className="muted">
               メールアドレス宛に確認リンクをお送りします。リンクを開くと登録完了です。
@@ -67,13 +79,25 @@ export default async function LoginPage({
                 メールアドレス
                 <input type="email" name="email" required placeholder="you@example.com" />
               </label>
+              <label className="field">
+                パスワード(8文字以上)
+                <input
+                  type="password"
+                  name="password"
+                  required
+                  minLength={8}
+                  autoComplete="new-password"
+                />
+              </label>
               <button type="submit">登録用リンクを送る</button>
             </form>
           </div>
-        ) : (
+        ) : view === "link" ? (
           <div className="card">
             <p className="muted">
-              登録済みのメールアドレスを入力してください。ログイン用のリンクをお送りします。
+              登録済みのメールアドレスにログイン用のリンクをお送りします
+              (パスワードを忘れた場合・未設定の場合はこちら。ログイン後に
+              申込状況ページでパスワードを設定し直せます)。
             </p>
             <form action={requestLoginLinkAction} className="stack">
               <label className="field">
@@ -82,6 +106,33 @@ export default async function LoginPage({
               </label>
               <button type="submit">ログインリンクを送る</button>
             </form>
+            <p className="muted" style={{ marginBottom: 0 }}>
+              <Link href="/login">← パスワードでログイン</Link>
+            </p>
+          </div>
+        ) : (
+          <div className="card">
+            <form action={passwordLoginAction} className="stack">
+              <label className="field">
+                メールアドレス
+                <input type="email" name="email" required placeholder="you@example.com" />
+              </label>
+              <label className="field">
+                パスワード
+                <input
+                  type="password"
+                  name="password"
+                  required
+                  autoComplete="current-password"
+                />
+              </label>
+              <button type="submit">ログイン</button>
+            </form>
+            <p className="muted" style={{ marginBottom: 0 }}>
+              <Link href="/login?tab=link">
+                パスワードを忘れた場合(メールのリンクでログイン)
+              </Link>
+            </p>
           </div>
         )}
       </main>

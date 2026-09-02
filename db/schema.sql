@@ -18,6 +18,7 @@ create table members (
   -- TODO(hearing:Q1)
   role          text not null default 'member' check (role in ('member', 'admin')),
   is_active     boolean not null default true,  -- TODO(hearing:Q2) 会員資格の検証方法
+  password_hash text,  -- scrypt。null = 未設定(メールリンクでのみログイン可)
   created_at    timestamptz not null default now()
 );
 
@@ -75,13 +76,14 @@ create table notifications (
 
 -- fans_code 認証(メール確認リンク)用のワンタイムトークン
 create table login_tokens (
-  id           uuid primary key default gen_random_uuid(),
-  email        text not null,
-  display_name text,
-  token_hash   text not null unique,  -- 生トークンは保存しない(SHA-256)
-  expires_at   timestamptz not null,
-  used_at      timestamptz,
-  created_at   timestamptz not null default now()
+  id            uuid primary key default gen_random_uuid(),
+  email         text not null,
+  display_name  text,
+  password_hash text,  -- アカウント作成時のパスワード(確認リンクを開いた時点で会員に設定)
+  token_hash    text not null unique,  -- 生トークンは保存しない(SHA-256)
+  expires_at    timestamptz not null,
+  used_at       timestamptz,
+  created_at    timestamptz not null default now()
 );
 create index idx_login_tokens_email on login_tokens(email);
 

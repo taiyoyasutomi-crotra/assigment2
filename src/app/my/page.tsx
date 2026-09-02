@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { requireMember } from "@/lib/auth/session";
+import { authMode } from "@/lib/auth/fansCode";
 import { listMyApplications } from "@/lib/applications";
 import { PROMOTION_DEADLINE_HOURS } from "@/lib/config";
 import { formatJst } from "@/lib/format";
+import { setPasswordAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -36,8 +38,13 @@ function statusView(app: {
   }
 }
 
-export default async function MyPage() {
+export default async function MyPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ password_updated?: string; error?: string }>;
+}) {
   const member = await requireMember();
+  const sp = await searchParams;
   const applications = await listMyApplications(member.id);
   return (
     <main className="container">
@@ -85,6 +92,38 @@ export default async function MyPage() {
           </tbody>
         </table>
         </div>
+      )}
+
+      {authMode() === "fans_code" && (
+        <>
+          <h2>パスワード</h2>
+          {sp.password_updated && (
+            <div className="notice success">パスワードを変更しました。</div>
+          )}
+          {sp.error === "weak_password" && (
+            <div className="notice error">パスワードは8文字以上にしてください。</div>
+          )}
+          <div className="card">
+            <p className="muted">
+              ログインに使うパスワードを設定・変更できます。
+            </p>
+            <form action={setPasswordAction} className="stack">
+              <label className="field">
+                新しいパスワード(8文字以上)
+                <input
+                  type="password"
+                  name="password"
+                  required
+                  minLength={8}
+                  autoComplete="new-password"
+                />
+              </label>
+              <div>
+                <button type="submit">パスワードを変更する</button>
+              </div>
+            </form>
+          </div>
+        </>
       )}
     </main>
   );

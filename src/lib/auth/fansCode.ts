@@ -13,6 +13,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { query, withTransaction } from "@/lib/db";
 import { appUrl } from "@/lib/config";
 import { getNotifyChannel } from "@/lib/notify/channel";
+import { hashPassword, verifyPassword } from "./password";
 import type { Member } from "./provider";
 
 const TOKEN_TTL_MINUTES = 15;
@@ -46,6 +47,8 @@ export async function requestLoginLink(input: {
   email: string;
   displayName: string;
   mode: "login" | "signup";
+  /** signup 時のみ: 設定するパスワードのハッシュ(確認リンクを開いた時点で会員に設定) */
+  passwordHash?: string | null;
 }): Promise<RequestLinkResult> {
   const email = input.email.trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -65,9 +68,9 @@ export async function requestLoginLink(input: {
 
   const token = randomBytes(24).toString("base64url");
   await query(
-    `insert into login_tokens (email, display_name, token_hash, expires_at)
-     values ($1, $2, $3, now() + interval '${TOKEN_TTL_MINUTES} minutes')`,
-    [email, input.displayName.trim() || null, hashToken(token)]
+    `insert into login_tokens (email, display_name, password_hash, token_hash, expires_at)
+     values ($1, $2, $3, $4, now() + interval '${TOKEN_TTL_MINUTES} minutes')`,
+    [email, input.displayName.trim() || null, input.passwordHash ?? null, hashToken(token)]
   );
 
   const url = `${appUrl()}/auth/verify?token=${token}`;
@@ -107,7 +110,7 @@ export async function verifyLoginToken(token: string): Promise<VerifyResult> {
     const res = await client.query(
       `update login_tokens set used_at = now()
        where token_hash = $1 and used_at is null and expires_at > now()
-       returning email, display_name`,
+       returning email, display_name, password_hash`,
       [hashToken(token)]
     );
     const row = res.rows[0];
@@ -137,13 +140,47 @@ export async function verifyLoginToken(token: string): Promise<VerifyResult> {
         row.display_name ||
         row.email.split("@")[0];
       const created = await client.query(
-        `insert into members (display_name, email, role)
-         values ($1, $2, 'member')
+        `insert into members (display_name, email, role, password_hash)
+         values ($1, $2, 'member', $3)
          returning id, display_name, email, role, is_active`,
-        [displayName, row.email]
+        [displayName, row.email, row.password_hash ?? null]
       );
       member = created.rows[0];
     }
     return { ok: true as const, member };
   });
+}
+
+export type PasswordLoginResult =
+  | { ok: true; member: Member }
+  | { ok: false; error: "invalid_credentials" | "password_not_set" };
+
+/** メールアドレス+パスワードでのログイン */
+export async function loginWithPassword(input: {
+  email: string;
+  password: string;
+}): Promise<PasswordLoginResult> {
+  const email = input.email.trim().toLowerCase();
+  const rows = await query<Member & { password_hash: string | null }>(
+    `select id, display_name, email, role, is_active, password_hash
+     from members where lower(email) = $1 and is_active
+     order by created_at limit 1`,
+    [email]
+  );
+  const row = rows[0];
+  if (!row) return { ok: false, error: "invalid_credentials" };
+  if (!row.password_hash) return { ok: false, error: "password_not_set" };
+  if (!verifyPassword(input.password, row.password_hash)) {
+    return { ok: false, error: "invalid_credentials" };
+  }
+  const { password_hash: _ph, ...member } = row;
+  return { ok: true, member };
+}
+
+/** ログイン中の会員のパスワードを設定/変更する(メールリンクで入った人の再設定にも使う) */
+export async function setPassword(memberId: string, password: string): Promise<void> {
+  await query("update members set password_hash = $2 where id = $1", [
+    memberId,
+    hashPassword(password),
+  ]);
 }

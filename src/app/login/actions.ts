@@ -2,7 +2,8 @@
 
 import { redirect } from "next/navigation";
 import { authProvider } from "@/lib/auth/provider";
-import { authMode, requestLoginLink } from "@/lib/auth/fansCode";
+import { authMode, requestLoginLink, loginWithPassword } from "@/lib/auth/fansCode";
+import { hashPassword, PASSWORD_MIN_LENGTH } from "@/lib/auth/password";
 import { createSession, destroySession } from "@/lib/auth/session";
 
 // モック認証: 会員を選ぶだけでログインできる(AUTH_MODE=mock のときのみ)。
@@ -16,7 +17,20 @@ export async function loginAction(formData: FormData) {
   redirect(member.role === "admin" ? "/admin/events" : "/");
 }
 
+// fans_code 認証: メールアドレス+パスワードでログイン
+export async function passwordLoginAction(formData: FormData) {
+  if (authMode() !== "fans_code") redirect("/login");
+  const result = await loginWithPassword({
+    email: String(formData.get("email") || ""),
+    password: String(formData.get("password") || ""),
+  });
+  if (!result.ok) redirect(`/login?error=${result.error}`);
+  await createSession(result.member.id);
+  redirect(result.member.role === "admin" ? "/admin/events" : "/");
+}
+
 // fans_code 認証: 登録済みアドレスにログインリンクをメール送信
+// (パスワードを忘れた/未設定の場合の入口。ログイン後に申込状況ページで設定し直せる)
 export async function requestLoginLinkAction(formData: FormData) {
   if (authMode() !== "fans_code") redirect("/login");
   const result = await requestLoginLink({
@@ -24,17 +38,23 @@ export async function requestLoginLinkAction(formData: FormData) {
     displayName: "",
     mode: "login",
   });
-  if (!result.ok) redirect(`/login?error=${result.error}`);
-  redirect("/login?sent=1");
+  if (!result.ok) redirect(`/login?tab=link&error=${result.error}`);
+  redirect("/login?tab=link&sent=1");
 }
 
-// fans_code 認証: 未登録アドレスにアカウント登録の確認リンクをメール送信
+// fans_code 認証: 未登録アドレスにアカウント登録の確認リンクをメール送信。
+// パスワードはこの時点でハッシュ化して預かり、リンクを開いた時点で会員に設定される
 export async function requestSignupAction(formData: FormData) {
   if (authMode() !== "fans_code") redirect("/login");
+  const password = String(formData.get("password") || "");
+  if (password.length < PASSWORD_MIN_LENGTH) {
+    redirect("/login?tab=signup&error=weak_password");
+  }
   const result = await requestLoginLink({
     email: String(formData.get("email") || ""),
     displayName: String(formData.get("displayName") || ""),
     mode: "signup",
+    passwordHash: hashPassword(password),
   });
   if (!result.ok) redirect(`/login?tab=signup&error=${result.error}`);
   redirect("/login?tab=signup&sent=1");
