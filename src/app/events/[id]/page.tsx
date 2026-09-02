@@ -13,6 +13,7 @@ const errorMessages: Record<string, string> = {
   already: "このイベントにはすでに申し込み済みです",
   invalid_email: "メールアドレスの形式が正しくありません",
   not_found: "イベントが見つかりません",
+  admin_cannot_apply: "運営者アカウントでは申し込みできません",
 };
 
 export default async function EventDetailPage({
@@ -67,7 +68,12 @@ export default async function EventDetailPage({
         <div className="notice error">{errorMessages[error] ?? "エラーが発生しました"}</div>
       )}
 
-      {myApplication && !applied ? (
+      {member.role === "admin" ? (
+        <div className="notice info">
+          運営者アカウントのため申し込みはできません。
+          <Link href={`/admin/events/${event.id}`}>管理画面でこのイベントを開く</Link>
+        </div>
+      ) : myApplication && !applied ? (
         <div className="notice info">
           このイベントには申し込み済みです。結果は
           <Link href="/my">申込状況ページ</Link>で確認できます。
