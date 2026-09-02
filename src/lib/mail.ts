@@ -29,7 +29,7 @@ export function buildWinMail(input: {
     `日時: ${formatJst(event.starts_at)}`,
     `会場: ${event.venue}`,
     "",
-    "当日は下記の入場チケット(QRコード)を受付でご提示ください。",
+    "当日は、このメールに添付の入場QRコード、または下記のチケットページを受付でご提示ください。",
     ticketUrl,
     "",
     `申込状況の確認: ${appUrl()}/my`,

@@ -24,6 +24,10 @@ export default async function RootLayout({
               ファンミ受付
             </Link>
             <nav>
+              {/* ホーム: 運営者は管理トップ(イベント作成)、会員はイベント一覧へ */}
+              <Link href={member?.role === "admin" ? "/admin/events" : "/"}>
+                ホーム
+              </Link>
               <Link href="/">イベント一覧</Link>
               {member && <Link href="/my">申込状況</Link>}
               {member?.role === "admin" && <Link href="/admin/events">管理</Link>}
