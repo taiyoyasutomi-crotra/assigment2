@@ -6,7 +6,8 @@ import { redirect } from "next/navigation";
 import { authProvider, type Member } from "./provider";
 
 const COOKIE_NAME = "fm_session";
-const SESSION_HOURS = 24 * 7;
+// 90日。メール確認リンク方式のため再ログインの手間が大きく、長めに保持する
+const SESSION_HOURS = 24 * 90;
 
 function secret(): string {
   return process.env.AUTH_SECRET || "dev-secret-change-me";

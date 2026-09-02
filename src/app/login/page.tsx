@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { authProvider } from "@/lib/auth/provider";
 import { authMode } from "@/lib/auth/fansCode";
+import { getSessionMember } from "@/lib/auth/session";
 import { loginAction, requestLoginLinkAction, requestSignupAction } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -23,6 +25,10 @@ export default async function LoginPage({
 }) {
   const { error, sent, tab } = await searchParams;
   const mode = authMode();
+
+  // ログイン済みならログイン画面を出さず、そのまま中へ
+  const current = await getSessionMember();
+  if (current) redirect(current.role === "admin" ? "/admin/events" : "/");
 
   if (mode === "fans_code") {
     const isSignup = tab === "signup";
