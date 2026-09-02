@@ -26,6 +26,8 @@ export default async function RootLayout({
             <nav>
               <Link href="/">ホーム</Link>
               {member && <Link href="/my">申込状況</Link>}
+              {/* アカウント: 自分のパスワード等。会員・運営者共通 */}
+              {member && <Link href="/account">アカウント</Link>}
               {/* 管理(イベント管理・運営者の追加/削除・名簿CSV取込)は運営者のみ */}
               {member?.role === "admin" && <Link href="/admin/events">管理</Link>}
             </nav>
