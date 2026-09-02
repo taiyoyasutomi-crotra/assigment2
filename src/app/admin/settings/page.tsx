@@ -7,6 +7,7 @@ import { formatJst } from "@/lib/format";
 import { CopyButton } from "@/components/CopyButton";
 import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
 import { listAdmins } from "@/lib/admins";
+import { setPasswordAction } from "@/app/account/actions";
 import {
   importAllowlistAction,
   clearAllowlistAction,
@@ -24,6 +25,7 @@ const errorMessages: Record<string, string> = {
     "CSVからメールアドレスを見つけられませんでした。列にメールアドレスが含まれているか確認してください",
   invalid_name: "運営者の表示名を入力してください",
   invalid_email: "メールアドレスの形式が正しくありません",
+  weak_password: "パスワードは8文字以上にしてください",
   admin_self: "自分自身は削除できません(別の運営者から削除してもらってください)",
   admin_not_found: "対象の運営者が見つかりませんでした",
 };
@@ -51,6 +53,7 @@ export default async function AdminSettingsPage({
     error?: string;
     admin_added?: string;
     admin_removed?: string;
+    password_updated?: string;
   }>;
 }) {
   const me = await requireAdmin();
@@ -61,10 +64,7 @@ export default async function AdminSettingsPage({
 
   return (
     <main className="container">
-      <p>
-        <Link href="/admin/events">← イベント管理へ戻る</Link>
-      </p>
-      <h1>認証設定(Fans' 会員向けログイン)</h1>
+      <h1>管理</h1>
 
       {sp.imported && (
         <div className="notice success">
@@ -80,10 +80,14 @@ export default async function AdminSettingsPage({
       )}
       {sp.admin_added && <div className="notice success">運営者を追加しました。</div>}
       {sp.admin_removed && <div className="notice success">運営者を削除しました。</div>}
+      {sp.password_updated && (
+        <div className="notice success">パスワードを変更しました。</div>
+      )}
       {sp.error && (
         <div className="notice error">{errorMessages[sp.error] ?? "エラーが発生しました"}</div>
       )}
 
+      <h2>認証設定</h2>
       <div className="card">
         <p style={{ marginTop: 0 }}>
           現在の認証モード:{" "}
@@ -150,6 +154,33 @@ export default async function AdminSettingsPage({
           <button type="submit">運営者を追加</button>
         </form>
       </div>
+
+      {mode === "fans_code" && (
+        <>
+          <h2>自分のパスワード</h2>
+          <div className="card">
+            <p className="muted">
+              ログイン({me.email})に使うパスワードを設定・変更できます。
+            </p>
+            <form action={setPasswordAction} className="stack">
+              <input type="hidden" name="from" value="admin" />
+              <label className="field">
+                新しいパスワード(8文字以上)
+                <input
+                  type="password"
+                  name="password"
+                  required
+                  minLength={8}
+                  autoComplete="new-password"
+                />
+              </label>
+              <div>
+                <button type="submit">パスワードを変更する</button>
+              </div>
+            </form>
+          </div>
+        </>
+      )}
 
       <h2>会員名簿</h2>
       <div className="card">
