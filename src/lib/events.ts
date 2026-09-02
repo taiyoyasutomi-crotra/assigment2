@@ -52,6 +52,12 @@ export function isLottery(e: EventRow): boolean {
   return e.application_limit > e.capacity; // TODO(hearing:Q3) 先着か抽選か
 }
 
+/** 完了したイベントか(開催日時を過ぎた、または明示的に終了)。一覧の仕分けに使う */
+export function isFinished(e: EventRow): boolean {
+  if (e.status === "finished") return true;
+  return e.status !== "draft" && new Date(e.starts_at) < new Date();
+}
+
 const COUNT_SQL = `(
   select count(*)::int from applications a
   where a.event_id = e.id and a.status <> 'cancelled'

@@ -1,10 +1,61 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/auth/session";
-import { listEvents, adminStatusLabel, isLottery } from "@/lib/events";
+import {
+  listEvents,
+  adminStatusLabel,
+  isLottery,
+  isFinished,
+  type EventWithCount,
+} from "@/lib/events";
 import { formatJst } from "@/lib/format";
 import { createEventAction } from "@/app/admin/actions";
 
 export const dynamic = "force-dynamic";
+
+function EventTable({
+  events,
+  finished,
+}: {
+  events: EventWithCount[];
+  finished: boolean;
+}) {
+  return (
+    <div className="table-scroll">
+      <table className="data">
+        <thead>
+          <tr>
+            <th>イベント名</th>
+            <th>日時</th>
+            <th>方式</th>
+            <th>申込</th>
+            <th>状態</th>
+          </tr>
+        </thead>
+        <tbody>
+          {events.map((e) => (
+            <tr key={e.id}>
+              <td>
+                <Link href={`/admin/events/${e.id}`}>{e.title}</Link>
+              </td>
+              <td>{formatJst(e.starts_at)}</td>
+              <td>{isLottery(e) ? "抽選" : "先着"}</td>
+              <td>
+                {e.application_count} / {e.application_limit}
+              </td>
+              <td>
+                {finished ? (
+                  <span className="badge finished">✓ 完了</span>
+                ) : (
+                  <span className="badge neutral">{adminStatusLabel(e)}</span>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
 export default async function AdminEventsPage({
   searchParams,
@@ -24,40 +75,23 @@ export default async function AdminEventsPage({
       </h1>
       {error && <div className="notice error">{error}</div>}
 
-      <h2>イベント一覧</h2>
-      {events.length === 0 ? (
-        <p className="muted">イベントはまだありません。下のフォームから作成してください。</p>
+      <h2>進行中のイベント</h2>
+      {events.filter((e) => !isFinished(e)).length === 0 ? (
+        <p className="muted">
+          進行中のイベントはありません。下のフォームから作成してください。
+        </p>
       ) : (
-        <div className="table-scroll">
-        <table className="data">
-          <thead>
-            <tr>
-              <th>イベント名</th>
-              <th>日時</th>
-              <th>方式</th>
-              <th>申込</th>
-              <th>状態</th>
-            </tr>
-          </thead>
-          <tbody>
-            {events.map((e) => (
-              <tr key={e.id}>
-                <td>
-                  <Link href={`/admin/events/${e.id}`}>{e.title}</Link>
-                </td>
-                <td>{formatJst(e.starts_at)}</td>
-                <td>{isLottery(e) ? "抽選" : "先着"}</td>
-                <td>
-                  {e.application_count} / {e.application_limit}
-                </td>
-                <td>
-                  <span className="badge neutral">{adminStatusLabel(e)}</span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        </div>
+        <EventTable events={events.filter((e) => !isFinished(e))} finished={false} />
+      )}
+
+      {events.some(isFinished) && (
+        <>
+          <h2>終了したイベント</h2>
+          <EventTable
+            events={events.filter(isFinished).reverse()}
+            finished={true}
+          />
+        </>
       )}
 
       <h2>新規イベント作成</h2>

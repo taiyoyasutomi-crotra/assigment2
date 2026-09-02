@@ -6,6 +6,8 @@ import { formatJst } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
+// 会員向けの表示は「当選 / 抽選中 / 終了」の3つに簡素化する(顧客指示 2026-09-02)。
+// 待機順位や落選などの内部状態は見せない(繰上の可能性がある間は「抽選中」のまま)
 function statusView(app: {
   status: string;
   waitlist_order: number | null;
@@ -13,26 +15,23 @@ function statusView(app: {
   event_status: string;
 }): { label: string; badge: string } {
   switch (app.status) {
-    case "applied":
-      return { label: "抽選待ち", badge: "applied" };
     case "won":
       return { label: "当選", badge: "won" };
+    case "applied":
+      return { label: "抽選中", badge: "applied" };
     case "waitlisted": {
-      // 繰上締切(開始2時間前)を過ぎたら繰上の可能性はないため落選表示にする
+      // 繰上締切(開始2時間前)を過ぎたら繰上の可能性はないため終了表示にする
       const deadline =
         new Date(app.starts_at).getTime() - PROMOTION_DEADLINE_HOURS * 3600 * 1000;
-      if (Date.now() > deadline) return { label: "落選", badge: "lost" };
-      return {
-        label: `待機中(${app.waitlist_order ?? "-"}番目)`,
-        badge: "waitlisted",
-      };
+      if (Date.now() > deadline) return { label: "終了", badge: "finished" };
+      return { label: "抽選中", badge: "applied" };
     }
     case "lost":
-      return { label: "落選", badge: "lost" };
+      return { label: "終了", badge: "finished" };
     case "cancelled":
       return { label: "キャンセル", badge: "cancelled" };
     default:
-      return { label: app.status, badge: "neutral" };
+      return { label: "終了", badge: "finished" };
   }
 }
 
