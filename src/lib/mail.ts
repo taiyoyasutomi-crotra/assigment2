@@ -9,16 +9,12 @@ export function buildWinMail(input: {
   ticketId: string;
   kind: "selection_won" | "promotion_won";
 }): { subject: string; body: string } {
-  const { event, displayName, ticketId, kind } = input;
+  // 繰上当選でも受信者には通常の当選と同じ文面で案内する(繰上の区別は
+  // 運営画面の通知履歴にのみ残す)。kind は履歴記録のため引き続き受け取る。
+  const { event, displayName, ticketId } = input;
   const ticketUrl = `${appUrl()}/my/tickets/${ticketId}`;
-  const subject =
-    kind === "promotion_won"
-      ? `【繰上当選】${event.title} ご参加確定のお知らせ`
-      : `【当選】${event.title} ご参加確定のお知らせ`;
-  const lead =
-    kind === "promotion_won"
-      ? "キャンセルが発生したため、繰り上げでご参加が確定しました。"
-      : "抽選の結果、ご参加が確定しました。";
+  const subject = `【当選】${event.title} ご参加確定のお知らせ`;
+  const lead = "抽選の結果、ご参加が確定しました。";
   const body = [
     `${displayName} 様`,
     "",
