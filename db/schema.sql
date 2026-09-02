@@ -80,6 +80,8 @@ create table login_tokens (
   email         text not null,
   display_name  text,
   password_hash text,  -- アカウント作成時のパスワード(確認リンクを開いた時点で会員に設定)
+  purpose       text not null default 'login'
+                check (purpose in ('login', 'signup', 'reset')),  -- reset はパスワード再設定専用
   token_hash    text not null unique,  -- 生トークンは保存しない(SHA-256)
   expires_at    timestamptz not null,
   used_at       timestamptz,

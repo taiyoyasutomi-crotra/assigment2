@@ -29,14 +29,14 @@ export async function passwordLoginAction(formData: FormData) {
   redirect(result.member.role === "admin" ? "/admin/events" : "/");
 }
 
-// fans_code 認証: 登録済みアドレスにログインリンクをメール送信
-// (パスワードを忘れた/未設定の場合の入口。ログイン後に申込状況ページで設定し直せる)
-export async function requestLoginLinkAction(formData: FormData) {
+// fans_code 認証: 登録済みアドレスにパスワード再設定リンクをメール送信
+// (パスワードを忘れた/未設定の場合の入口。リンク先で新パスワードを設定してそのままログイン)
+export async function requestResetAction(formData: FormData) {
   if (authMode() !== "fans_code") redirect("/login");
   const result = await requestLoginLink({
     email: String(formData.get("email") || ""),
     displayName: "",
-    mode: "login",
+    mode: "reset",
   });
   if (!result.ok) redirect(`/login?tab=link&error=${result.error}`);
   redirect("/login?tab=link&sent=1");

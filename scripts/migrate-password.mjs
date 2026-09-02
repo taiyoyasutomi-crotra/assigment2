@@ -22,7 +22,10 @@ try {
   await client.query(
     "alter table login_tokens add column if not exists password_hash text"
   );
-  console.log("マイグレーション完了: password_hash 列を追加しました");
+  await client.query(
+    "alter table login_tokens add column if not exists purpose text not null default 'login'"
+  );
+  console.log("マイグレーション完了: password_hash / purpose 列を追加しました");
 } finally {
   await client.end();
 }

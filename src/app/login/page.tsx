@@ -6,7 +6,7 @@ import { getSessionMember } from "@/lib/auth/session";
 import {
   loginAction,
   passwordLoginAction,
-  requestLoginLinkAction,
+  requestResetAction,
   requestSignupAction,
 } from "./actions";
 
@@ -23,7 +23,7 @@ const errorMessages: Record<string, string> = {
     "このメールアドレスは登録済みです。「ログイン」からお進みください",
   invalid_credentials: "メールアドレスまたはパスワードが正しくありません",
   password_not_set:
-    "このアカウントはパスワードが未設定です。「メールのリンクでログイン」からログインし、申込状況ページでパスワードを設定してください",
+    "このアカウントはパスワードが未設定です。「パスワードを忘れた場合」から設定してください",
   weak_password: "パスワードは8文字以上にしてください",
 };
 
@@ -62,7 +62,7 @@ export default async function LoginPage({
           <div className="notice success">
             {view === "signup"
               ? "アカウント登録用のリンクをメールで送信しました(有効期限15分)。リンクを開くと登録が完了します。"
-              : "ログインリンクをメールで送信しました(有効期限15分)。メールをご確認ください。"}
+              : "パスワード再設定用のリンクをメールで送信しました(有効期限15分)。リンクを開いて新しいパスワードを設定してください。"}
             届かない場合は迷惑メールフォルダもご確認ください。
           </div>
         ) : view === "signup" ? (
@@ -95,16 +95,15 @@ export default async function LoginPage({
         ) : view === "link" ? (
           <div className="card">
             <p className="muted">
-              登録済みのメールアドレスにログイン用のリンクをお送りします
-              (パスワードを忘れた場合・未設定の場合はこちら。ログイン後に
-              申込状況ページでパスワードを設定し直せます)。
+              登録済みのメールアドレスにパスワード再設定用のリンクをお送りします
+              (パスワードを忘れた場合・未設定の場合はこちら)。
             </p>
-            <form action={requestLoginLinkAction} className="stack">
+            <form action={requestResetAction} className="stack">
               <label className="field">
                 メールアドレス
                 <input type="email" name="email" required placeholder="you@example.com" />
               </label>
-              <button type="submit">ログインリンクを送る</button>
+              <button type="submit">再設定リンクを送る</button>
             </form>
             <p className="muted" style={{ marginBottom: 0 }}>
               <Link href="/login">← パスワードでログイン</Link>
@@ -129,9 +128,7 @@ export default async function LoginPage({
               <button type="submit">ログイン</button>
             </form>
             <p className="muted" style={{ marginBottom: 0 }}>
-              <Link href="/login?tab=link">
-                パスワードを忘れた場合(メールのリンクでログイン)
-              </Link>
+              <Link href="/login?tab=link">パスワードを忘れた場合(再設定)</Link>
             </p>
           </div>
         )}
