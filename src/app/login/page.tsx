@@ -67,6 +67,7 @@ export default async function LoginPage({
         <div className="notice error">{errorMessages[error] ?? "エラーが発生しました"}</div>
       )}
       <div className="card">
+        <div className="table-scroll">
         <table className="data">
           <thead>
             <tr>
@@ -92,6 +93,7 @@ export default async function LoginPage({
             ))}
           </tbody>
         </table>
+        </div>
       </div>
     </main>
   );

@@ -24,6 +24,11 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans",
     "Noto Sans JP", Meiryo, sans-serif;
   line-height: 1.6;
+  -webkit-text-size-adjust: 100%;
+}
+
+img {
+  max-width: 100%;
 }
 
 a {
@@ -44,8 +49,10 @@ a:hover {
   margin: 0 auto;
   display: flex;
   align-items: center;
-  gap: 20px;
-  height: 56px;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  min-height: 56px;
+  padding: 8px 0;
 }
 .site-header .brand {
   font-weight: 700;
@@ -53,8 +60,12 @@ a:hover {
 }
 .site-header nav {
   display: flex;
-  gap: 16px;
+  flex-wrap: wrap;
+  gap: 6px 16px;
   flex: 1;
+}
+.site-header nav a {
+  white-space: nowrap;
 }
 .site-header .user {
   display: flex;
@@ -62,6 +73,13 @@ a:hover {
   gap: 10px;
   color: var(--muted);
   font-size: 0.9rem;
+  margin-left: auto;
+}
+.site-header .user span {
+  max-width: 10em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 main.container {
@@ -120,6 +138,7 @@ h2 {
   font-size: 0.78rem;
   font-weight: 600;
   vertical-align: middle;
+  white-space: nowrap;
 }
 .badge.open {
   background: #dcfce7;
@@ -215,6 +234,19 @@ select {
   border: 1px solid var(--border);
   border-radius: 8px;
   background: #fff;
+}
+
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-bottom: 16px;
+}
+.table-scroll table.data th {
+  white-space: nowrap;
+}
+.table-scroll table.data button,
+.table-scroll table.data .button {
+  white-space: nowrap;
 }
 
 table.data {
@@ -325,8 +357,9 @@ table.data tr:last-child td {
   text-align: center;
 }
 .ticket img.qr {
-  width: 260px;
-  height: 260px;
+  width: min(260px, 75vw);
+  height: auto;
+  aspect-ratio: 1 / 1;
   image-rendering: pixelated;
 }
 .ticket .name {
@@ -379,4 +412,33 @@ table.data tr:last-child td {
   background: rgba(255, 255, 255, 0.25);
   font-size: 1.1rem;
   padding: 12px 32px;
+}
+
+/* スマホ幅の調整 */
+@media (max-width: 600px) {
+  .site-header {
+    padding: 0 12px;
+  }
+  main.container {
+    padding: 16px 12px 48px;
+  }
+  h1 {
+    font-size: 1.3rem;
+  }
+  h2 {
+    font-size: 1.05rem;
+    margin-top: 24px;
+  }
+  .card {
+    padding: 16px;
+  }
+  .event-card {
+    padding: 14px 16px;
+  }
+  .stat-row {
+    gap: 16px;
+  }
+  .modal {
+    padding: 20px 16px;
+  }
 }

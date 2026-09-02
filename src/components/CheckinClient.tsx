@@ -125,7 +125,8 @@ export function CheckinClient({ eventId }: { eventId: string }) {
         </button>
       </form>
       {rows && (
-        <table className="data" style={{ marginTop: 12 }}>
+        <div className="table-scroll" style={{ marginTop: 12 }}>
+        <table className="data">
           <tbody>
             {rows.length === 0 && (
               <tr>
@@ -157,6 +158,7 @@ export function CheckinClient({ eventId }: { eventId: string }) {
             ))}
           </tbody>
         </table>
+        </div>
       )}
 
       {result && (

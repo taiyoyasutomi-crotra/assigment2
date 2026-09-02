@@ -139,6 +139,7 @@ export default async function AdminEventDetailPage({
       {applications.length === 0 ? (
         <p className="muted">申込はまだありません。</p>
       ) : (
+        <div className="table-scroll">
         <table className="data">
           <thead>
             <tr>
@@ -192,12 +193,14 @@ export default async function AdminEventDetailPage({
             })}
           </tbody>
         </table>
+        </div>
       )}
 
       <h2>通知履歴</h2>
       {notifications.length === 0 ? (
         <p className="muted">通知はまだありません。</p>
       ) : (
+        <div className="table-scroll">
         <table className="data">
           <thead>
             <tr>
@@ -236,6 +239,7 @@ export default async function AdminEventDetailPage({
             ))}
           </tbody>
         </table>
+        </div>
       )}
     </main>
   );

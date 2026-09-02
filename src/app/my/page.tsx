@@ -48,6 +48,7 @@ export default async function MyPage() {
         </p>
       )}
       {applications.length > 0 && (
+        <div className="table-scroll">
         <table className="data">
           <thead>
             <tr>
@@ -83,6 +84,7 @@ export default async function MyPage() {
             })}
           </tbody>
         </table>
+        </div>
       )}
     </main>
   );

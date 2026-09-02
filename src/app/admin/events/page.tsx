@@ -28,6 +28,7 @@ export default async function AdminEventsPage({
       {events.length === 0 ? (
         <p className="muted">イベントはまだありません。下のフォームから作成してください。</p>
       ) : (
+        <div className="table-scroll">
         <table className="data">
           <thead>
             <tr>
@@ -56,6 +57,7 @@ export default async function AdminEventsPage({
             ))}
           </tbody>
         </table>
+        </div>
       )}
 
       <h2>新規イベント作成</h2>
