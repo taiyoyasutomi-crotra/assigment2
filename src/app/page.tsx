@@ -18,11 +18,19 @@ const badgeClass: Record<string, string> = {
   終了: "finished",
 };
 
-function EventCard({ event: e, finished }: { event: EventWithCount; finished: boolean }) {
+function EventCard({
+  event: e,
+  finished,
+  href,
+}: {
+  event: EventWithCount;
+  finished: boolean;
+  href?: string;
+}) {
   const label = memberStatusLabel(e);
   const remaining = Math.max(0, e.application_limit - e.application_count);
   return (
-    <Link href={`/events/${e.id}`} className="event-card">
+    <Link href={href ?? `/events/${e.id}`} className="event-card">
       <div className="title">
         {e.title}{" "}
         {finished ? (
@@ -83,10 +91,23 @@ export default async function HomePage() {
           </div>
         </>
       )}
+      {member.role === "admin" && active.length > 0 && (
+        <p className="muted">
+          イベントを開くと受付画面(当日の来場客管理)に移動します。
+        </p>
+      )}
       {active.length === 0 && <p className="muted">開催予定のイベントはありません</p>}
       <div className="event-list">
         {active.map((e) => (
-          <EventCard key={e.id} event={e} finished={false} />
+          <EventCard
+            key={e.id}
+            event={e}
+            finished={false}
+            // 運営者は当日の受付にすぐ入れるよう、受付画面へ直行させる
+            href={
+              member.role === "admin" ? `/admin/events/${e.id}/checkin` : undefined
+            }
+          />
         ))}
       </div>
       {finished.length > 0 && (
@@ -94,7 +115,12 @@ export default async function HomePage() {
           <h2>終了したイベント</h2>
           <div className="event-list">
             {finished.map((e) => (
-              <EventCard key={e.id} event={e} finished={true} />
+              <EventCard
+                key={e.id}
+                event={e}
+                finished={true}
+                href={member.role === "admin" ? `/admin/events/${e.id}` : undefined}
+              />
             ))}
           </div>
         </>

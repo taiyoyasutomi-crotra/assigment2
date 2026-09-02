@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/auth/session";
 import { getEvent } from "@/lib/events";
@@ -17,6 +18,9 @@ export default async function CheckinPage({
 
   return (
     <main className="container" style={{ maxWidth: 520 }}>
+      <p>
+        <Link href={`/admin/events/${event.id}`}>← イベント管理へ</Link>
+      </p>
       <h1 style={{ textAlign: "center" }}>受付: {event.title}</h1>
       <CheckinClient eventId={event.id} />
     </main>
