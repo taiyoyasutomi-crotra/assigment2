@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireMember } from "@/lib/auth/session";
+import { listMyApplications } from "@/lib/applications";
 import {
   listEvents,
   memberStatusLabel,
@@ -41,14 +42,47 @@ function EventCard({ event: e, finished }: { event: EventWithCount; finished: bo
 }
 
 export default async function HomePage() {
-  await requireMember();
+  const member = await requireMember();
   const events = await listEvents();
   // 進行中と完了を混ぜない: 完了したイベントは下の別セクションへ
   const active = events.filter((e) => !isFinished(e));
   const finished = events.filter(isFinished).reverse(); // 新しい順
+
+  // 参加予定: 当選していて、まだ開催が終わっていないイベント。
+  // 当日にQRチケットへすぐ辿り着けるよう、ホームの最上部に出す
+  const myApplications = member.role === "admin" ? [] : await listMyApplications(member.id);
+  const upcomingWins = myApplications.filter(
+    (a) =>
+      a.status === "won" &&
+      a.ticket_id &&
+      new Date(a.starts_at).getTime() > Date.now() - 24 * 3600 * 1000
+  );
+
   return (
     <main className="container">
       <h1>イベント一覧</h1>
+      {upcomingWins.length > 0 && (
+        <>
+          <h2 style={{ marginTop: 8 }}>参加予定のイベント</h2>
+          <div className="event-list">
+            {upcomingWins.map((a) => (
+              <div key={a.id} className="event-card">
+                <div className="title">
+                  {a.title} <span className="badge won">当選</span>
+                </div>
+                <div className="meta">
+                  {formatJst(a.starts_at)} / {a.venue}
+                </div>
+                <div style={{ marginTop: 10 }}>
+                  <Link href={`/my/tickets/${a.ticket_id}`} className="button">
+                    入場QRチケットを表示
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
       {active.length === 0 && <p className="muted">開催予定のイベントはありません</p>}
       <div className="event-list">
         {active.map((e) => (

@@ -126,16 +126,42 @@ export type WinnerRow = {
   revoked_at: Date | null;
 };
 
-/** QR が読めない場合の手動検索(表示名の部分一致、当選者のみ) */
-export async function searchWinners(eventId: string, q: string): Promise<WinnerRow[]> {
+/** 受付ボード用: 当選者の全一覧(入場状態つき) */
+export async function listWinners(eventId: string): Promise<WinnerRow[]> {
   return query<WinnerRow>(
     `select a.id as application_id, m.display_name, t.token, t.checked_in_at, t.revoked_at
      from applications a
      join members m on m.id = a.member_id
      left join tickets t on t.application_id = a.id
-     where a.event_id = $1 and a.status = 'won' and m.display_name ilike $2
-     order by m.display_name
-     limit 20`,
-    [eventId, `%${q}%`]
+     where a.event_id = $1 and a.status = 'won'
+     order by m.display_name`,
+    [eventId]
   );
+}
+
+export type ManualCheckinResult = { ok: true } | { ok: false; error: string };
+
+/**
+ * 受付ボードからの手動操作。checkedIn=true で入場、false で入場取消。
+ * 対象イベントの有効な当選チケットに限定して更新する
+ */
+export async function setCheckedIn(
+  eventId: string,
+  applicationId: string,
+  checkedIn: boolean
+): Promise<ManualCheckinResult> {
+  const rows = await query<{ id: string }>(
+    `update tickets t set checked_in_at = ${checkedIn ? "now()" : "null"}
+     from applications a
+     where t.application_id = a.id
+       and a.id = $1 and a.event_id = $2
+       and a.status = 'won' and t.revoked_at is null
+       and t.checked_in_at is ${checkedIn ? "null" : "not null"}
+     returning t.id`,
+    [applicationId, eventId]
+  );
+  if (!rows[0]) {
+    return { ok: false, error: "対象のチケットを更新できませんでした(画面を更新してください)" };
+  }
+  return { ok: true };
 }
