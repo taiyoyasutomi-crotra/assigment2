@@ -60,10 +60,10 @@ function EventTable({
 export default async function AdminEventsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; deleted?: string }>;
 }) {
   await requireAdmin();
-  const { error } = await searchParams;
+  const { error, deleted } = await searchParams;
   const events = await listEvents();
   return (
     <main className="container">
@@ -74,6 +74,7 @@ export default async function AdminEventsPage({
         </Link>
       </h1>
       {error && <div className="notice error">{error}</div>}
+      {deleted && <div className="notice success">イベントを削除しました。</div>}
 
       <h2>進行中のイベント</h2>
       {events.filter((e) => !isFinished(e)).length === 0 ? (

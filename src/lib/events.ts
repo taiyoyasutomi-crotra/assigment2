@@ -1,4 +1,4 @@
-import { query } from "@/lib/db";
+import { query, withTransaction } from "@/lib/db";
 
 export type EventRow = {
   id: string;
@@ -56,6 +56,63 @@ export function isLottery(e: EventRow): boolean {
 export function isFinished(e: EventRow): boolean {
   if (e.status === "finished") return true;
   return e.status !== "draft" && new Date(e.starts_at) < new Date();
+}
+
+/** イベントを手動で完了にする(一覧の「終了したイベント」へ移る) */
+export async function finishEvent(id: string): Promise<void> {
+  await query("update events set status = 'finished' where id = $1", [id]);
+}
+
+/** イベントを削除する(申込・チケット・通知履歴も一緒に消える。取り消し不可) */
+export async function deleteEvent(id: string): Promise<void> {
+  await withTransaction(async (client) => {
+    await client.query("delete from notifications where event_id = $1", [id]);
+    await client.query(
+      `delete from tickets where application_id in
+       (select id from applications where event_id = $1)`,
+      [id]
+    );
+    await client.query("delete from applications where event_id = $1", [id]);
+    await client.query("delete from events where id = $1", [id]);
+  });
+}
+
+export type UpdateEventResult = { ok: true } | { ok: false; error: string };
+
+/** 募集中/締切中のイベントの定員(当選人数)と申込締切を変更する */
+export async function updateEventSettings(
+  id: string,
+  input: { capacity: number; closesAt: Date }
+): Promise<UpdateEventResult> {
+  const e = await getEvent(id);
+  if (!e) return { ok: false, error: "イベントが見つかりません" };
+  if (e.status === "selected" || e.status === "finished") {
+    return { ok: false, error: "選定後・完了後のイベントは変更できません" };
+  }
+  if (!Number.isInteger(input.capacity) || input.capacity <= 0) {
+    return { ok: false, error: "定員は1以上の整数で入力してください" };
+  }
+  if (input.capacity > e.application_limit) {
+    return {
+      ok: false,
+      error: `定員は申込上限(${e.application_limit})以下にしてください`,
+    };
+  }
+  if (isNaN(input.closesAt.getTime())) {
+    return { ok: false, error: "日時の形式が不正です" };
+  }
+  if (input.closesAt >= new Date(e.starts_at)) {
+    return { ok: false, error: "申込締切はイベント開始より前にしてください" };
+  }
+  // 締切を未来に延ばした場合は募集中に戻す(手動締切していても延長の意図を優先)
+  const reopen = input.closesAt > new Date() && e.status === "closed";
+  await query(
+    `update events set capacity = $2, closes_at = $3
+       ${reopen ? ", status = 'open'" : ""}
+     where id = $1`,
+    [id, input.capacity, input.closesAt]
+  );
+  return { ok: true };
 }
 
 const COUNT_SQL = `(

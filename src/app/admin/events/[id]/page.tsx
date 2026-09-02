@@ -1,13 +1,25 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/auth/session";
-import { getEvent, effectiveStatus, adminStatusLabel, isLottery } from "@/lib/events";
+import {
+  getEvent,
+  effectiveStatus,
+  adminStatusLabel,
+  isLottery,
+  isFinished,
+} from "@/lib/events";
 import { allowlistSummary, allowlistContains } from "@/lib/allowlist";
 import { listApplicationsForEvent, listNotificationsForEvent } from "@/lib/adminQueries";
 import { buildAnnouncement } from "@/lib/announce";
-import { formatJst } from "@/lib/format";
+import { formatJst, toJstLocalInput } from "@/lib/format";
 import { appUrl } from "@/lib/config";
-import { closeEventAction, runSelectionAction } from "@/app/admin/actions";
+import {
+  closeEventAction,
+  runSelectionAction,
+  finishEventAction,
+  deleteEventAction,
+  updateEventAction,
+} from "@/app/admin/actions";
 import { CopyButton } from "@/components/CopyButton";
 import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
 import { CancelButton } from "@/components/CancelButton";
@@ -33,6 +45,8 @@ export default async function AdminEventDetailPage({
     selected?: string;
     waitlisted?: string;
     excluded?: string;
+    finished?: string;
+    updated?: string;
     error?: string;
   }>;
 }) {
@@ -65,8 +79,11 @@ export default async function AdminEventDetailPage({
   const dupGroupCount = [...emailCounts.values()].filter((c) => c > 1).length;
 
   const eff = effectiveStatus(event);
-  const canClose = eff === "open";
-  const canSelect = eff === "closed";
+  const finished = isFinished(event);
+  const canClose = !finished && eff === "open";
+  const canSelect = !finished && eff === "closed";
+  // 定員・締切の変更は選定前まで
+  const canEdit = !finished && eff !== "selected";
 
   return (
     <main className="container">
@@ -85,6 +102,12 @@ export default async function AdminEventDetailPage({
         </div>
       )}
       {sp.closed && <div className="notice success">募集を締め切りました。</div>}
+      {sp.finished && (
+        <div className="notice success">
+          イベントを完了にしました(一覧の「終了したイベント」に移動します)。
+        </div>
+      )}
+      {sp.updated && <div className="notice success">イベント設定を変更しました。</div>}
       {sp.selected && (
         <div className="notice success">
           選定を実行しました(当選 {sp.selected} 名 / 待機 {sp.waitlisted ?? 0} 名
@@ -136,11 +159,71 @@ export default async function AdminEventDetailPage({
               </button>
             </form>
           )}
-          <Link href={`/admin/events/${event.id}/checkin`} className="button">
-            受付画面を開く
-          </Link>
+          {!finished && (
+            <Link href={`/admin/events/${event.id}/checkin`} className="button">
+              受付画面を開く
+            </Link>
+          )}
+          {!finished && (
+            <form action={finishEventAction}>
+              <input type="hidden" name="eventId" value={event.id} />
+              <ConfirmSubmitButton
+                className="secondary"
+                message={`「${event.title}」を完了にします。一覧の「終了したイベント」に移り、申込・受付はできなくなります。よろしいですか?`}
+              >
+                イベントを完了にする
+              </ConfirmSubmitButton>
+            </form>
+          )}
+          <form action={deleteEventAction}>
+            <input type="hidden" name="eventId" value={event.id} />
+            <ConfirmSubmitButton
+              className="danger"
+              message={`「${event.title}」を削除します。申込(${event.application_count}件)・チケット・通知履歴もすべて消え、元に戻せません。本当に削除しますか?`}
+            >
+              イベントを削除する
+            </ConfirmSubmitButton>
+          </form>
         </div>
       </div>
+
+      {canEdit && (
+        <>
+          <h2>イベント設定の変更</h2>
+          <div className="card">
+            <p className="muted">
+              定員(当選人数)と申込締切は選定前まで変更できます。
+              締切を未来の日時に延ばすと、募集中に戻ります。
+            </p>
+            <form action={updateEventAction} className="stack">
+              <input type="hidden" name="eventId" value={event.id} />
+              <label className="field">
+                定員(当選人数)
+                <input
+                  type="number"
+                  name="capacity"
+                  required
+                  min={1}
+                  max={event.application_limit}
+                  defaultValue={event.capacity}
+                />
+              </label>
+              <label className="field">
+                申込締切日時
+                <input
+                  type="datetime-local"
+                  name="closesAt"
+                  required
+                  defaultValue={toJstLocalInput(event.closes_at)}
+                />
+              </label>
+              <div>
+                <button type="submit">変更を保存する</button>
+              </div>
+            </form>
+          </div>
+        </>
+      )}
 
       <h2>告知文</h2>
       <div className="card">

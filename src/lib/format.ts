@@ -18,3 +18,9 @@ export function parseJstLocal(value: string): Date {
   const v = value.length === 16 ? `${value}:00` : value; // 秒なし形式に対応
   return new Date(`${v}+09:00`);
 }
+
+// Date を <input type="datetime-local"> の初期値(JST)に変換する
+export function toJstLocalInput(d: Date | string): string {
+  const t = typeof d === "string" ? new Date(d) : d;
+  return new Date(t.getTime() + 9 * 3600 * 1000).toISOString().slice(0, 16);
+}

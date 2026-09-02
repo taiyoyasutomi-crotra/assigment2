@@ -4,7 +4,12 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth/session";
 import { query } from "@/lib/db";
-import { createEvent } from "@/lib/events";
+import {
+  createEvent,
+  finishEvent,
+  deleteEvent,
+  updateEventSettings,
+} from "@/lib/events";
 import { parseJstLocal } from "@/lib/format";
 import { runSelection } from "@/lib/selection";
 import { previewCancel, executeCancel, type CancelPreview, type CancelResult } from "@/lib/cancel";
@@ -54,6 +59,36 @@ export async function runSelectionAction(formData: FormData) {
   redirect(
     `/admin/events/${eventId}?selected=${result.winners}&waitlisted=${result.waitlisted}&excluded=${result.excluded}`
   );
+}
+
+/** 手動でイベントを完了にする(一覧の「終了したイベント」へ移す) */
+export async function finishEventAction(formData: FormData) {
+  await requireAdmin();
+  const eventId = String(formData.get("eventId") || "");
+  await finishEvent(eventId);
+  redirect(`/admin/events/${eventId}?finished=1`);
+}
+
+/** イベントを削除する(申込・チケット・通知履歴ごと。取り消し不可) */
+export async function deleteEventAction(formData: FormData) {
+  await requireAdmin();
+  const eventId = String(formData.get("eventId") || "");
+  await deleteEvent(eventId);
+  redirect("/admin/events?deleted=1");
+}
+
+/** 定員(当選人数)・申込締切の変更 */
+export async function updateEventAction(formData: FormData) {
+  await requireAdmin();
+  const eventId = String(formData.get("eventId") || "");
+  const result = await updateEventSettings(eventId, {
+    capacity: Number(formData.get("capacity")),
+    closesAt: parseJstLocal(String(formData.get("closesAt") || "")),
+  });
+  if (!result.ok) {
+    redirect(`/admin/events/${eventId}?error=${encodeURIComponent(result.error)}`);
+  }
+  redirect(`/admin/events/${eventId}?updated=1`);
 }
 
 /** キャンセル確認ダイアログ用(クライアントから呼ぶ) */
