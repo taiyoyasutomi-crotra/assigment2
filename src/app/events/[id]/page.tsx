@@ -12,6 +12,8 @@ const errorMessages: Record<string, string> = {
   closed: "募集は締め切られました",
   already: "このイベントにはすでに申し込み済みです",
   invalid_email: "メールアドレスの形式が正しくありません",
+  duplicate_email:
+    "このメールアドレスは、このイベントの別の申込で既に使われています",
   not_found: "イベントが見つかりません",
   admin_cannot_apply: "運営者アカウントでは申し込みできません",
 };

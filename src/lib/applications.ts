@@ -6,7 +6,10 @@ import { query } from "@/lib/db";
 
 export type ApplyResult =
   | { ok: true; closedNow: boolean }
-  | { ok: false; error: "not_found" | "closed" | "already" | "invalid_email" };
+  | {
+      ok: false;
+      error: "not_found" | "closed" | "already" | "invalid_email" | "duplicate_email";
+    };
 
 export async function applyToEvent(
   eventId: string,
@@ -38,6 +41,17 @@ export async function applyToEvent(
       [eventId, memberId]
     );
     if (dup.rows.length > 0) return { ok: false as const, error: "already" as const };
+
+    // 同一イベント内で同じ連絡先メールの申込は不可(別アカウントからの重複エントリー防止)。
+    // イベント行ロック内なので同時申込でも重複しない。キャンセル済みは再申込を許す
+    const emailDup = await client.query(
+      `select 1 from applications
+       where event_id = $1 and lower(email) = lower($2) and status <> 'cancelled'`,
+      [eventId, trimmed]
+    );
+    if (emailDup.rows.length > 0) {
+      return { ok: false as const, error: "duplicate_email" as const };
+    }
 
     const cntRes = await client.query(
       "select count(*)::int as c from applications where event_id = $1 and status <> 'cancelled'",
