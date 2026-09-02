@@ -19,6 +19,8 @@ import {
   finishEventAction,
   deleteEventAction,
   updateEventAction,
+  approveApplicationAction,
+  deleteApplicationAction,
 } from "@/app/admin/actions";
 import { CopyButton } from "@/components/CopyButton";
 import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
@@ -47,6 +49,8 @@ export default async function AdminEventDetailPage({
     excluded?: string;
     finished?: string;
     updated?: string;
+    approved?: string;
+    app_deleted?: string;
     error?: string;
   }>;
 }) {
@@ -108,6 +112,12 @@ export default async function AdminEventDetailPage({
         </div>
       )}
       {sp.updated && <div className="notice success">イベント設定を変更しました。</div>}
+      {sp.approved && (
+        <div className="notice success">
+          申込を承認しました(メールアドレスを会員名簿に追加し、選定対象になります)。
+        </div>
+      )}
+      {sp.app_deleted && <div className="notice success">申込を削除しました。</div>}
       {sp.selected && (
         <div className="notice success">
           選定を実行しました(当選 {sp.selected} 名 / 待機 {sp.waitlisted ?? 0} 名
@@ -244,7 +254,8 @@ export default async function AdminEventDetailPage({
       {offRosterCount > 0 && (
         <div className="notice error">
           会員名簿に載っていないメールアドレスの申込が {offRosterCount} 件あります。
-          選定(抽選)で対象外・落選になります。
+          申込数に数えず、選定(抽選)でも対象外・落選になります。
+          会員と確認できた場合は「承認」、そうでなければ「削除」で整理してください。
         </div>
       )}
       {dupGroupCount > 0 && (
@@ -321,6 +332,30 @@ export default async function AdminEventDetailPage({
                   <td>
                     {a.status === "won" && (
                       <CancelButton applicationId={a.id} eventId={event.id} />
+                    )}
+                    {a.status !== "cancelled" && isOffRoster(a.email) && (
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <form action={approveApplicationAction}>
+                          <input type="hidden" name="applicationId" value={a.id} />
+                          <input type="hidden" name="eventId" value={event.id} />
+                          <ConfirmSubmitButton
+                            className="small"
+                            message={`「${a.display_name}」(${a.email})を会員として承認し、メールアドレスを会員名簿に追加します。この申込は申込数・選定の対象になります。※次に名簿CSVを取り込み直すと上書きされるため、正式には次回のCSVに反映してください。`}
+                          >
+                            承認
+                          </ConfirmSubmitButton>
+                        </form>
+                        <form action={deleteApplicationAction}>
+                          <input type="hidden" name="applicationId" value={a.id} />
+                          <input type="hidden" name="eventId" value={event.id} />
+                          <ConfirmSubmitButton
+                            className="danger small"
+                            message={`「${a.display_name}」(${a.email})の申込を削除します。元に戻せません。よろしいですか?`}
+                          >
+                            削除
+                          </ConfirmSubmitButton>
+                        </form>
+                      </div>
                     )}
                   </td>
                 </tr>

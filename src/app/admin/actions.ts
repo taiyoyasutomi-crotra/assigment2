@@ -11,6 +11,7 @@ import {
   updateEventSettings,
 } from "@/lib/events";
 import { parseJstLocal } from "@/lib/format";
+import { approveApplicationEmail, deleteApplication } from "@/lib/applications";
 import { runSelection } from "@/lib/selection";
 import { previewCancel, executeCancel, type CancelPreview, type CancelResult } from "@/lib/cancel";
 
@@ -89,6 +90,24 @@ export async function updateEventAction(formData: FormData) {
     redirect(`/admin/events/${eventId}?error=${encodeURIComponent(result.error)}`);
   }
   redirect(`/admin/events/${eventId}?updated=1`);
+}
+
+/** 名簿外申込の承認: メールアドレスを会員名簿に追加し、選定対象にする */
+export async function approveApplicationAction(formData: FormData) {
+  await requireAdmin();
+  const applicationId = String(formData.get("applicationId") || "");
+  const eventId = String(formData.get("eventId") || "");
+  await approveApplicationEmail(applicationId);
+  redirect(`/admin/events/${eventId}?approved=1`);
+}
+
+/** 名簿外申込の削除 */
+export async function deleteApplicationAction(formData: FormData) {
+  await requireAdmin();
+  const applicationId = String(formData.get("applicationId") || "");
+  const eventId = String(formData.get("eventId") || "");
+  await deleteApplication(applicationId);
+  redirect(`/admin/events/${eventId}?app_deleted=1`);
 }
 
 /** キャンセル確認ダイアログ用(クライアントから呼ぶ) */

@@ -115,9 +115,15 @@ export async function updateEventSettings(
   return { ok: true };
 }
 
+// 申込数のカウント: キャンセル済みは数えない。名簿を取込済みの場合、
+// 名簿外の申込も数えない(選定対象外のため。承認すると名簿入りしてカウントされる)
 const COUNT_SQL = `(
   select count(*)::int from applications a
   where a.event_id = e.id and a.status <> 'cancelled'
+    and (
+      not exists (select 1 from member_allowlist)
+      or exists (select 1 from member_allowlist al where al.email = lower(a.email))
+    )
 )`;
 
 export async function listEvents(): Promise<EventWithCount[]> {
