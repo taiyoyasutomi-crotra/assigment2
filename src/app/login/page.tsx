@@ -1,6 +1,7 @@
+import Link from "next/link";
 import { authProvider } from "@/lib/auth/provider";
 import { authMode } from "@/lib/auth/fansCode";
-import { loginAction, requestLoginLinkAction } from "./actions";
+import { loginAction, requestLoginLinkAction, requestSignupAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -9,38 +10,66 @@ const errorMessages: Record<string, string> = {
   invalid_email: "メールアドレスの形式が正しくありません",
   send_failed: "メールの送信に失敗しました。時間をおいて再度お試しください",
   invalid_link: "ログインリンクが無効か、有効期限(15分)が切れています。もう一度お試しください",
+  not_registered:
+    "このメールアドレスは登録されていません。「アカウント作成」からご登録ください",
+  already_registered:
+    "このメールアドレスは登録済みです。「ログイン」からお進みください",
 };
 
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; sent?: string }>;
+  searchParams: Promise<{ error?: string; sent?: string; tab?: string }>;
 }) {
-  const { error, sent } = await searchParams;
+  const { error, sent, tab } = await searchParams;
   const mode = authMode();
 
   if (mode === "fans_code") {
+    const isSignup = tab === "signup";
     return (
       <main className="container">
-        <h1>ログイン</h1>
-        <p className="muted">
-          メールアドレスを入力してください。ログイン用のリンクをメールでお送りします。
-        </p>
+        <h1>{isSignup ? "アカウント作成" : "ログイン"}</h1>
+        <div className="tab-row">
+          <Link href="/login" className={`tab ${!isSignup ? "active" : ""}`}>
+            ログイン
+          </Link>
+          <Link href="/login?tab=signup" className={`tab ${isSignup ? "active" : ""}`}>
+            アカウント作成
+          </Link>
+        </div>
         {error && (
           <div className="notice error">{errorMessages[error] ?? "エラーが発生しました"}</div>
         )}
         {sent ? (
           <div className="notice success">
-            ログインリンクをメールで送信しました(有効期限15分)。メールをご確認ください。
+            {isSignup
+              ? "アカウント登録用のリンクをメールで送信しました(有効期限15分)。リンクを開くと登録が完了します。"
+              : "ログインリンクをメールで送信しました(有効期限15分)。メールをご確認ください。"}
             届かない場合は迷惑メールフォルダもご確認ください。
+          </div>
+        ) : isSignup ? (
+          <div className="card">
+            <p className="muted">
+              メールアドレス宛に確認リンクをお送りします。リンクを開くと登録完了です。
+            </p>
+            <form action={requestSignupAction} className="stack">
+              <label className="field">
+                表示名
+                <input type="text" name="displayName" required placeholder="ニックネーム" />
+              </label>
+              <label className="field">
+                メールアドレス
+                <input type="email" name="email" required placeholder="you@example.com" />
+              </label>
+              <button type="submit">登録用リンクを送る</button>
+            </form>
           </div>
         ) : (
           <div className="card">
+            <p className="muted">
+              登録済みのメールアドレスを入力してください。ログイン用のリンクをお送りします。
+            </p>
             <form action={requestLoginLinkAction} className="stack">
-              <label className="field">
-                表示名(初回登録時に使用します)
-                <input type="text" name="displayName" placeholder="ニックネーム" />
-              </label>
               <label className="field">
                 メールアドレス
                 <input type="email" name="email" required placeholder="you@example.com" />

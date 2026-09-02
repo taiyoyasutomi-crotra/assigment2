@@ -27,16 +27,40 @@ function hashToken(token: string): string {
 
 export type RequestLinkResult =
   | { ok: true }
-  | { ok: false; error: "invalid_email" | "send_failed" };
+  | {
+      ok: false;
+      error:
+        | "invalid_email"
+        | "send_failed"
+        | "not_registered"
+        | "already_registered";
+    };
 
-/** ログイン用の確認リンクをメールで送る(名簿照合はしない。会員確認は選定時) */
+/**
+ * ログイン/アカウント作成用の確認リンクをメールで送る(名簿照合はしない。会員確認は選定時)。
+ * - mode "login": 登録済みのメールアドレスのみ受け付ける
+ * - mode "signup": 未登録のメールアドレスのみ受け付ける(登録済みの二重作成を防ぐ)
+ * アカウントの作成自体は、リンクを開いた時点(verifyLoginToken)で行われる。
+ */
 export async function requestLoginLink(input: {
   email: string;
   displayName: string;
+  mode: "login" | "signup";
 }): Promise<RequestLinkResult> {
   const email = input.email.trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return { ok: false, error: "invalid_email" };
+  }
+
+  const registered =
+    (
+      await query("select 1 from members where lower(email) = $1 limit 1", [email])
+    ).length > 0;
+  if (input.mode === "login" && !registered) {
+    return { ok: false, error: "not_registered" };
+  }
+  if (input.mode === "signup" && registered) {
+    return { ok: false, error: "already_registered" };
   }
 
   const token = randomBytes(24).toString("base64url");
@@ -47,13 +71,20 @@ export async function requestLoginLink(input: {
   );
 
   const url = `${appUrl()}/auth/verify?token=${token}`;
+  const isSignup = input.mode === "signup";
   try {
     await getNotifyChannel().send({
       to: email,
-      subject: "【ファンミ受付】ログインリンクのお知らせ",
+      subject: isSignup
+        ? "【ファンミ受付】アカウント登録の確認"
+        : "【ファンミ受付】ログインリンクのお知らせ",
       body: [
-        "ファンミーティング参加受付システムへのログインリンクです。",
-        `${TOKEN_TTL_MINUTES}分以内に下記のリンクを開いてください。`,
+        isSignup
+          ? "ファンミーティング参加受付システムのアカウント登録を受け付けました。"
+          : "ファンミーティング参加受付システムへのログインリンクです。",
+        `${TOKEN_TTL_MINUTES}分以内に下記のリンクを開いて${
+          isSignup ? "登録を完了" : "ログイン"
+        }してください。`,
         "",
         url,
         "",

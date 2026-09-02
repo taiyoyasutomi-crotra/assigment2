@@ -16,15 +16,28 @@ export async function loginAction(formData: FormData) {
   redirect(member.role === "admin" ? "/admin/events" : "/");
 }
 
-// fans_code 認証: 会員名簿と照合してログインリンクをメール送信
+// fans_code 認証: 登録済みアドレスにログインリンクをメール送信
 export async function requestLoginLinkAction(formData: FormData) {
   if (authMode() !== "fans_code") redirect("/login");
   const result = await requestLoginLink({
     email: String(formData.get("email") || ""),
-    displayName: String(formData.get("displayName") || ""),
+    displayName: "",
+    mode: "login",
   });
   if (!result.ok) redirect(`/login?error=${result.error}`);
   redirect("/login?sent=1");
+}
+
+// fans_code 認証: 未登録アドレスにアカウント登録の確認リンクをメール送信
+export async function requestSignupAction(formData: FormData) {
+  if (authMode() !== "fans_code") redirect("/login");
+  const result = await requestLoginLink({
+    email: String(formData.get("email") || ""),
+    displayName: String(formData.get("displayName") || ""),
+    mode: "signup",
+  });
+  if (!result.ok) redirect(`/login?tab=signup&error=${result.error}`);
+  redirect("/login?tab=signup&sent=1");
 }
 
 export async function logoutAction() {
