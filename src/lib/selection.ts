@@ -10,7 +10,7 @@ import { issueTicket } from "@/lib/tickets";
 import { recordNotification, deliverAll } from "@/lib/notify/notifications";
 
 export type SelectionResult =
-  | { ok: true; winners: number; waitlisted: number }
+  | { ok: true; winners: number; waitlisted: number; excluded: number }
   | { ok: false; error: "not_found" | "not_closed" | "already_selected" };
 
 export async function runSelection(eventId: string): Promise<SelectionResult> {
@@ -44,9 +44,34 @@ export async function runSelection(eventId: string): Promise<SelectionResult> {
       display_name: string;
     }[] = appsRes.rows;
 
+    // 会員確認はログイン時ではなくここ(選定時)で行う(2026-09-02 顧客方針):
+    // 申込時に入力されたメールアドレスが会員名簿(CSV)に載っている申込だけを
+    // 選定対象にし、載っていない申込は落選にする。
+    // 名簿が未取込(0件)の場合は照合せず全員を対象にする(名簿運用前・デモ)。
+    const rosterCount = (
+      await client.query("select count(*)::int as c from member_allowlist")
+    ).rows[0].c as number;
+    let eligible = apps;
+    let excluded: typeof apps = [];
+    if (rosterCount > 0) {
+      const emails = [...new Set(apps.map((a) => a.email.toLowerCase()))];
+      const found = await client.query(
+        "select email from member_allowlist where email = any($1)",
+        [emails]
+      );
+      const inRoster = new Set(found.rows.map((r: { email: string }) => r.email));
+      eligible = apps.filter((a) => inRoster.has(a.email.toLowerCase()));
+      excluded = apps.filter((a) => !inRoster.has(a.email.toLowerCase()));
+    }
+    for (const app of excluded) {
+      await client.query("update applications set status = 'lost' where id = $1", [
+        app.id,
+      ]);
+    }
+
     // 抽選: crypto の乱数で Fisher–Yates シャッフル
     // 先着(limit = capacity)は自動締切により申込数 <= capacity のため全員当選になる
-    const pool = [...apps];
+    const pool = [...eligible];
     if (event.application_limit > event.capacity) {
       for (let i = pool.length - 1; i > 0; i--) {
         const j = randomInt(i + 1);
@@ -89,6 +114,7 @@ export async function runSelection(eventId: string): Promise<SelectionResult> {
       ok: true as const,
       winners: winners.length,
       waitlisted: waitlisted.length,
+      excluded: excluded.length,
       ids: notificationIds,
     };
   });

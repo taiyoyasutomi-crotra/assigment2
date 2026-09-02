@@ -52,7 +52,7 @@ export async function runSelectionAction(formData: FormData) {
     );
   }
   redirect(
-    `/admin/events/${eventId}?selected=${result.winners}&waitlisted=${result.waitlisted}`
+    `/admin/events/${eventId}?selected=${result.winners}&waitlisted=${result.waitlisted}&excluded=${result.excluded}`
   );
 }
 

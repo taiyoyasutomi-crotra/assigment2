@@ -1,11 +1,11 @@
-// Fans'(fansnet.jp)会員向けの本番用認証: 会員名簿(CSV)照合 + メール確認リンク。
+// Fans'(fansnet.jp)会員向けの本番用認証: メール確認リンク。
 //
 // 調査結果(2026-09-01): Fans' は第三者向けの公開 API / OAuth / SSO を提供していない。
-// そのため「Fans' アカウントでログイン」は直接実装できない。代わりに、
-//   運営者が Fans' 管理画面からエクスポートした会員CSVを名簿として取り込み
-//   → 名簿に載っているメールアドレスにのみ確認リンクを送信
-//   → リンクを開いた時点で会員として登録・ログイン
-// とする。会員判定の正は常に名簿(CSV)。
+// そのため「Fans' アカウントでログイン」は直接実装できない。
+// ログインリンクは誰でも受け取れる(名簿照合しない)。会員かどうかの確認は
+// ログイン時ではなく選定(抽選)時に、申込メールアドレスを名簿(CSV)と照合して行う
+// (2026-09-02 顧客方針: 名簿CSVの更新前に入会した新会員がログインすら
+//  できなくなるのを避ける。→ lib/selection.ts)
 // ※「参加コード」方式は流出時に非会員が入れてしまうため不採用(顧客判断 2026-09-01)
 // TODO(hearing:Q1): ベンダー(ロココ社)への連携可否の正式確認(API があれば CSV 再取込を自動化できる)
 // TODO(hearing:Q2): CSV 再取込の運用頻度(新会員の反映・退会者の除外はいずれも再取込で行う)
@@ -13,7 +13,6 @@ import { createHash, randomBytes } from "node:crypto";
 import { query, withTransaction } from "@/lib/db";
 import { appUrl } from "@/lib/config";
 import { getNotifyChannel } from "@/lib/notify/channel";
-import { allowlistLookup } from "@/lib/allowlist";
 import type { Member } from "./provider";
 
 const TOKEN_TTL_MINUTES = 15;
@@ -28,9 +27,9 @@ function hashToken(token: string): string {
 
 export type RequestLinkResult =
   | { ok: true }
-  | { ok: false; error: "invalid_email" | "send_failed" | "not_member" };
+  | { ok: false; error: "invalid_email" | "send_failed" };
 
-/** 会員名簿と照合し、ログイン用の確認リンクをメールで送る */
+/** ログイン用の確認リンクをメールで送る(名簿照合はしない。会員確認は選定時) */
 export async function requestLoginLink(input: {
   email: string;
   displayName: string;
@@ -38,19 +37,6 @@ export async function requestLoginLink(input: {
   const email = input.email.trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return { ok: false, error: "invalid_email" };
-  }
-
-  // 会員判定は名簿(Fans' の CSV)照合のみ。
-  // 運営者(role=admin)は Fans' の名簿に載らないため免除する
-  const isAdmin =
-    (
-      await query(
-        "select 1 from members where lower(email) = $1 and role = 'admin' and is_active",
-        [email]
-      )
-    ).length > 0;
-  if (!isAdmin && !(await allowlistLookup(email))) {
-    return { ok: false, error: "not_member" };
   }
 
   const token = randomBytes(24).toString("base64url");

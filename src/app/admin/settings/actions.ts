@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth/session";
 import { parseRosterCsv, replaceAllowlist, clearAllowlist } from "@/lib/allowlist";
+import { addAdmin, removeAdmin } from "@/lib/admins";
 
 // 日本語サービスのCSVは Shift_JIS(cp932)が多いため、UTF-8 で読めない場合は
 // Shift_JIS として読み直す(メールは ASCII なのでどちらでも取れるが、表示名が化ける)
@@ -39,6 +40,23 @@ export async function clearAllowlistAction() {
   await requireAdmin();
   await clearAllowlist();
   redirect("/admin/settings?cleared=1");
+}
+
+export async function addAdminAction(formData: FormData) {
+  await requireAdmin();
+  const result = await addAdmin({
+    displayName: String(formData.get("displayName") || ""),
+    email: String(formData.get("email") || ""),
+  });
+  if (!result.ok) redirect(`/admin/settings?error=${result.error}`);
+  redirect("/admin/settings?admin_added=1");
+}
+
+export async function removeAdminAction(formData: FormData) {
+  const me = await requireAdmin();
+  const result = await removeAdmin(String(formData.get("memberId") || ""), me.id);
+  if (!result.ok) redirect(`/admin/settings?error=admin_${result.error}`);
+  redirect("/admin/settings?admin_removed=1");
 }
 
 /** CSVの中身を貼り付けて取込(ブックマークレットが使えない場合の代替) */

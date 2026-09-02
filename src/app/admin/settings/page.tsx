@@ -6,10 +6,13 @@ import { appUrl } from "@/lib/config";
 import { formatJst } from "@/lib/format";
 import { CopyButton } from "@/components/CopyButton";
 import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
+import { listAdmins } from "@/lib/admins";
 import {
   importAllowlistAction,
   clearAllowlistAction,
   pasteImportAction,
+  addAdminAction,
+  removeAdminAction,
 } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -19,6 +22,10 @@ const errorMessages: Record<string, string> = {
   too_large: "ファイルが大きすぎます(5MBまで)",
   no_emails:
     "CSVからメールアドレスを見つけられませんでした。列にメールアドレスが含まれているか確認してください",
+  invalid_name: "運営者の表示名を入力してください",
+  invalid_email: "メールアドレスの形式が正しくありません",
+  admin_self: "自分自身は削除できません(別の運営者から削除してもらってください)",
+  admin_not_found: "対象の運営者が見つかりませんでした",
 };
 
 // Fans' の会員向け告知に貼る案内文(コードは使わない。名簿照合のみ)
@@ -30,8 +37,8 @@ function fansPostText(): string {
     "▼ ログインはこちら",
     `${appUrl()}/login`,
     "",
-    "Fans' に登録しているメールアドレスを入力すると、ログイン用のリンクがメールで届きます。",
-    "(会員の方のみログインできます。メールが届かない場合は運営までお知らせください)",
+    "メールアドレスを入力すると、ログイン用のリンクがメールで届きます。",
+    "※イベントへの申込では、Fans' に登録しているメールアドレスをご入力ください(会員確認のうえ抽選します)",
   ].join("\n");
 }
 
@@ -42,12 +49,15 @@ export default async function AdminSettingsPage({
     imported?: string;
     cleared?: string;
     error?: string;
+    admin_added?: string;
+    admin_removed?: string;
   }>;
 }) {
-  await requireAdmin();
+  const me = await requireAdmin();
   const sp = await searchParams;
   const mode = authMode();
   const roster = await allowlistSummary();
+  const admins = await listAdmins();
 
   return (
     <main className="container">
@@ -58,15 +68,18 @@ export default async function AdminSettingsPage({
 
       {sp.imported && (
         <div className="notice success">
-          会員名簿を取り込みました({sp.imported}件)。名簿にあるメールアドレスだけが
-          ログインできます。
+          会員名簿を取り込みました({sp.imported}件)。選定(抽選)のときに
+          この名簿と照合します。
         </div>
       )}
       {sp.cleared && (
         <div className="notice error">
-          会員名簿を削除しました。名簿を取り込むまで、会員はログインできません。
+          会員名簿を削除しました。取り込み直すまで名簿照合は行われず、
+          全員が選定対象になります。
         </div>
       )}
+      {sp.admin_added && <div className="notice success">運営者を追加しました。</div>}
+      {sp.admin_removed && <div className="notice success">運営者を削除しました。</div>}
       {sp.error && (
         <div className="notice error">{errorMessages[sp.error] ?? "エラーが発生しました"}</div>
       )}
@@ -77,8 +90,9 @@ export default async function AdminSettingsPage({
           <strong>{mode === "fans_code" ? "fans_code(Fans' 会員向け)" : "mock(デモ用)"}</strong>
         </p>
         <p className="muted" style={{ marginBottom: 0 }}>
-          会員判定は <strong>Fans' の会員名簿(CSV)との照合のみ</strong>で行います。
-          名簿にあるメールアドレスにだけログインリンクを送ります。
+          ログインは誰でもできます(メール確認リンク)。会員かどうかの確認は
+          <strong>選定(抽選)のときに、申込のメールアドレスを会員名簿(CSV)と照合</strong>
+          して行います。名簿に載っていない申込は対象外(落選)になります。
           {mode !== "fans_code" && (
             <>
               いまはデモ用の選択式ログインです。本番運用に切り替えるには、ホスティング側の
@@ -88,11 +102,61 @@ export default async function AdminSettingsPage({
         </p>
       </div>
 
+      <h2>運営者</h2>
+      <div className="card">
+        <p className="muted">
+          運営者は会員名簿と関係なくログインでき、管理画面を利用できます。
+        </p>
+        <div className="table-scroll">
+        <table className="data">
+          <thead>
+            <tr>
+              <th>表示名</th>
+              <th>メールアドレス</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {admins.map((a) => (
+              <tr key={a.id}>
+                <td>{a.display_name}</td>
+                <td>{a.email}</td>
+                <td>
+                  {a.id === me.id ? (
+                    <span className="muted">自分</span>
+                  ) : (
+                    <form action={removeAdminAction}>
+                      <input type="hidden" name="memberId" value={a.id} />
+                      <ConfirmSubmitButton
+                        className="danger small"
+                        message={`運営者「${a.display_name}」を削除します。この人は管理画面に入れなくなります。よろしいですか?`}
+                      >
+                        削除
+                      </ConfirmSubmitButton>
+                    </form>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        </div>
+        <form
+          action={addAdminAction}
+          style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginTop: 12 }}
+        >
+          <input type="text" name="displayName" placeholder="表示名" required />
+          <input type="email" name="email" placeholder="メールアドレス" required />
+          <button type="submit">運営者を追加</button>
+        </form>
+      </div>
+
       <h2>会員名簿</h2>
       <div className="card">
         <p>
           会員のメールアドレス一覧(CSVファイル)を取り込んでください。
-          名簿に載っているメールアドレスだけがログインできます(運営者は除く)。
+          選定(抽選)のときにこの名簿と照合し、載っていないメールアドレスの申込は
+          対象外(落選)になります。
           CSVに表示名の列が含まれていれば、初回ログイン時の表示名として自動で使われます。
         </p>
         <p className="muted">
@@ -114,7 +178,7 @@ export default async function AdminSettingsPage({
             </>
           ) : (
             <span className="badge lost">
-              未取込(名簿を取り込むまで会員はログインできません)
+              未取込(取り込むまで名簿照合は行われず、全員が選定対象になります)
             </span>
           )}
         </p>
@@ -129,7 +193,7 @@ export default async function AdminSettingsPage({
           <form action={clearAllowlistAction} style={{ marginTop: 12 }}>
             <ConfirmSubmitButton
               className="danger small"
-              message="会員名簿をすべて削除します。名簿を取り込み直すまで会員はログインできなくなります。よろしいですか?"
+              message="会員名簿をすべて削除します。取り込み直すまで名簿照合は行われず、全員が選定対象になります。よろしいですか?"
             >
               名簿をすべて削除する
             </ConfirmSubmitButton>

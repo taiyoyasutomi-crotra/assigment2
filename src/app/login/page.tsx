@@ -9,8 +9,6 @@ const errorMessages: Record<string, string> = {
   invalid_email: "メールアドレスの形式が正しくありません",
   send_failed: "メールの送信に失敗しました。時間をおいて再度お試しください",
   invalid_link: "ログインリンクが無効か、有効期限(15分)が切れています。もう一度お試しください",
-  not_member:
-    "このメールアドレスは会員名簿に見つかりませんでした。Fans' に登録しているメールアドレスでお試しください。最近入会された場合は名簿が未更新の可能性があるため、運営者にお問い合わせください",
 };
 
 export default async function LoginPage({
@@ -26,8 +24,7 @@ export default async function LoginPage({
       <main className="container">
         <h1>ログイン</h1>
         <p className="muted">
-          Fans' に登録しているメールアドレスを入力してください。会員名簿と照合のうえ、
-          ログイン用のリンクをメールでお送りします。
+          メールアドレスを入力してください。ログイン用のリンクをメールでお送りします。
         </p>
         {error && (
           <div className="notice error">{errorMessages[error] ?? "エラーが発生しました"}</div>

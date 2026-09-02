@@ -82,7 +82,8 @@ export default async function EventDetailPage({
           <form action={applyAction} className="stack">
             <input type="hidden" name="eventId" value={event.id} />
             <label className="field">
-              連絡先メールアドレス(当選のご連絡に使用します)
+              連絡先メールアドレス(当選のご連絡に使用します。Fans'
+              に登録しているメールアドレスをご入力ください)
               <input
                 type="email"
                 name="email"

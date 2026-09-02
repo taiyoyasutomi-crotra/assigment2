@@ -33,6 +33,16 @@ export async function allowlistLookup(
   return rows[0] ?? null;
 }
 
+/** 複数メールアドレスの名簿照合。名簿に載っているアドレス(小文字)の集合を返す */
+export async function allowlistContains(emails: string[]): Promise<Set<string>> {
+  if (emails.length === 0) return new Set();
+  const rows = await query<{ email: string }>(
+    "select email from member_allowlist where email = any($1)",
+    [emails.map((e) => e.toLowerCase())]
+  );
+  return new Set(rows.map((r) => r.email));
+}
+
 /**
  * 最小限の CSV パース(RFC 4180 相当)。
  * 引用符内のカンマ・改行・"" エスケープに対応。区切りはカンマ/タブ/セミコロン

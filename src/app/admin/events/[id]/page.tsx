@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/auth/session";
 import { getEvent, effectiveStatus, adminStatusLabel, isLottery } from "@/lib/events";
+import { allowlistSummary, allowlistContains } from "@/lib/allowlist";
 import { listApplicationsForEvent, listNotificationsForEvent } from "@/lib/adminQueries";
 import { buildAnnouncement } from "@/lib/announce";
 import { formatJst } from "@/lib/format";
@@ -31,6 +32,7 @@ export default async function AdminEventDetailPage({
     closed?: string;
     selected?: string;
     waitlisted?: string;
+    excluded?: string;
     error?: string;
   }>;
 }) {
@@ -42,6 +44,25 @@ export default async function AdminEventDetailPage({
   if (!event) notFound();
   const applications = await listApplicationsForEvent(id);
   const notifications = await listNotificationsForEvent(id);
+
+  // 申込チェック(GUI表示用): 名簿外のアドレスと、同一アドレスの重複申込を可視化する。
+  // キャンセル済みは対象外。名簿が未取込のときは名簿照合をしない(rosterSet=null)
+  const activeApps = applications.filter((a) => a.status !== "cancelled");
+  const roster = await allowlistSummary();
+  const rosterSet =
+    roster.count > 0
+      ? await allowlistContains([...new Set(activeApps.map((a) => a.email))])
+      : null;
+  const emailCounts = new Map<string, number>();
+  for (const a of activeApps) {
+    const e = a.email.toLowerCase();
+    emailCounts.set(e, (emailCounts.get(e) ?? 0) + 1);
+  }
+  const isDup = (email: string) => (emailCounts.get(email.toLowerCase()) ?? 0) > 1;
+  const isOffRoster = (email: string) =>
+    rosterSet !== null && !rosterSet.has(email.toLowerCase());
+  const offRosterCount = activeApps.filter((a) => isOffRoster(a.email)).length;
+  const dupGroupCount = [...emailCounts.values()].filter((c) => c > 1).length;
 
   const eff = effectiveStatus(event);
   const canClose = eff === "open";
@@ -66,8 +87,9 @@ export default async function AdminEventDetailPage({
       {sp.closed && <div className="notice success">募集を締め切りました。</div>}
       {sp.selected && (
         <div className="notice success">
-          選定を実行しました(当選 {sp.selected} 名 / 待機 {sp.waitlisted ?? 0} 名)。
-          当選者にのみ通知を送信しています。
+          選定を実行しました(当選 {sp.selected} 名 / 待機 {sp.waitlisted ?? 0} 名
+          {Number(sp.excluded) > 0 && <> / 名簿外のため対象外・落選 {sp.excluded} 名</>}
+          )。当選者にのみ通知を送信しています。
         </div>
       )}
       {sp.error && <div className="notice error">{sp.error}</div>}
@@ -136,6 +158,22 @@ export default async function AdminEventDetailPage({
       </div>
 
       <h2>申込一覧</h2>
+      {offRosterCount > 0 && (
+        <div className="notice error">
+          会員名簿に載っていないメールアドレスの申込が {offRosterCount} 件あります。
+          選定(抽選)で対象外・落選になります。
+        </div>
+      )}
+      {dupGroupCount > 0 && (
+        <div className="notice info">
+          同じメールアドレスからの申込が {dupGroupCount} 組あります(重複の可能性)。
+        </div>
+      )}
+      {roster.count === 0 && activeApps.length > 0 && (
+        <p className="muted">
+          会員名簿が未取込のため、名簿との照合は行っていません(全員が選定対象)。
+        </p>
+      )}
       {applications.length === 0 ? (
         <p className="muted">申込はまだありません。</p>
       ) : (
@@ -160,7 +198,21 @@ export default async function AdminEventDetailPage({
               return (
                 <tr key={a.id}>
                   <td>{a.display_name}</td>
-                  <td>{a.email}</td>
+                  <td>
+                    {a.email}
+                    {a.status !== "cancelled" && isOffRoster(a.email) && (
+                      <>
+                        {" "}
+                        <span className="badge lost">名簿外</span>
+                      </>
+                    )}
+                    {a.status !== "cancelled" && isDup(a.email) && (
+                      <>
+                        {" "}
+                        <span className="badge waitlisted">重複</span>
+                      </>
+                    )}
+                  </td>
                   <td>{formatJst(a.applied_at)}</td>
                   <td>
                     <span className={`badge ${s.badge}`}>
