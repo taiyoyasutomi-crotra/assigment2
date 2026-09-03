@@ -60,7 +60,12 @@ function EventTable({
 export default async function AdminEventsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string; error?: string; deleted?: string }>;
+  searchParams: Promise<{
+    tab?: string;
+    error?: string;
+    deleted?: string;
+    saved?: string;
+  }>;
 }) {
   await requireAdmin();
   const sp = await searchParams;
@@ -92,7 +97,8 @@ export default async function AdminEventsPage({
   );
 
   const emptyMessage: Record<Exclude<Tab, "new">, string> = {
-    draft: "作成中(下書き)のイベントはありません。",
+    draft:
+      "作成中のイベントはありません。新規イベントの作成フォームで「一時保存」すると、ここに入ります。",
     open: "募集中のイベントはありません。「新規イベントの作成」から作成してください。",
     active: "開催中(募集締切後)のイベントはありません。",
     finished: "終了したイベントはありません。",
@@ -110,6 +116,12 @@ export default async function AdminEventsPage({
       <h1>イベント</h1>
       {sp.error && <div className="notice error">{sp.error}</div>}
       {sp.deleted && <div className="notice success">イベントを削除しました。</div>}
+      {sp.saved && (
+        <div className="notice success">
+          一時保存しました(作成中)。会員にはまだ公開されていません。
+          イベントを開いて編集し、「公開する」で募集を開始できます。
+        </div>
+      )}
 
       <div className="settings-layout">
         <aside className="settings-nav">
@@ -128,8 +140,9 @@ export default async function AdminEventsPage({
               <h2>新規イベントの作成</h2>
               <div className="card">
                 <p className="muted">
-                  作成すると会員向けの申込ページが即座に公開されます。申込は締切日時まで受け付け、
-                  応募が定員を超えた場合は選定時に抽選になります。
+                  「イベントを作成する」で会員向けの申込ページが即座に公開されます。
+                  すぐ公開しない場合は「一時保存」で作成中に保存できます(会員には非公開)。
+                  申込は締切日時まで受け付け、応募が定員を超えた場合は選定時に抽選になります。
                 </p>
                 <form action={createEventAction} className="stack">
                   <label className="field">
@@ -170,7 +183,12 @@ export default async function AdminEventsPage({
                     申込締切日時
                     <input type="datetime-local" name="closesAt" required />
                   </label>
-                  <button type="submit">イベントを作成する</button>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <button type="submit">イベントを作成する(公開)</button>
+                    <button type="submit" name="mode" value="draft" className="secondary">
+                      一時保存(作成中に保存)
+                    </button>
+                  </div>
                 </form>
               </div>
             </>

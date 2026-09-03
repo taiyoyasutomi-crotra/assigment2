@@ -32,6 +32,21 @@ export async function listApplicationsForEvent(
   );
 }
 
+/** イベントごとの当選者数と入場済み数(運営者ホームの開催中カード用) */
+export type WinnerStats = { won: number; checked_in: number };
+
+export async function listWinnerStats(): Promise<Map<string, WinnerStats>> {
+  const rows = await query<{ event_id: string; won: number; checked_in: number }>(
+    `select a.event_id, count(*)::int as won,
+            count(t.checked_in_at)::int as checked_in
+     from applications a
+     left join tickets t on t.application_id = a.id and t.revoked_at is null
+     where a.status = 'won'
+     group by a.event_id`
+  );
+  return new Map(rows.map((r) => [r.event_id, { won: r.won, checked_in: r.checked_in }]));
+}
+
 export type AdminNotificationRow = {
   id: string;
   display_name: string;

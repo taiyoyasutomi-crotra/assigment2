@@ -9,6 +9,8 @@ import {
   finishEvent,
   deleteEvent,
   updateEventSettings,
+  updateDraftEvent,
+  publishEvent,
 } from "@/lib/events";
 import { parseJstLocal } from "@/lib/format";
 import { approveApplicationEmail, deleteApplication } from "@/lib/applications";
@@ -17,6 +19,8 @@ import { previewCancel, executeCancel, type CancelPreview, type CancelResult } f
 
 export async function createEventAction(formData: FormData) {
   await requireAdmin();
+  // 「一時保存」ボタンからの送信は下書き(作成中)として保存する
+  const draft = formData.get("mode") === "draft";
   const result = await createEvent({
     title: String(formData.get("title") || ""),
     startsAt: parseJstLocal(String(formData.get("startsAt") || "")),
@@ -24,12 +28,45 @@ export async function createEventAction(formData: FormData) {
     description: String(formData.get("description") || ""),
     capacity: Number(formData.get("capacity")),
     closesAt: parseJstLocal(String(formData.get("closesAt") || "")),
+    draft,
   });
   if ("error" in result) {
     redirect(`/admin/events?tab=new&error=${encodeURIComponent(result.error)}`);
   }
+  if (draft) {
+    redirect(`/admin/events?tab=draft&saved=1`);
+  }
   // 作成した瞬間に会員向けの申込ページが生える(F1)
   redirect(`/admin/events/${result.id}?created=1`);
+}
+
+/** 下書き(作成中)の編集を保存 */
+export async function updateDraftAction(formData: FormData) {
+  await requireAdmin();
+  const eventId = String(formData.get("eventId") || "");
+  const result = await updateDraftEvent(eventId, {
+    title: String(formData.get("title") || ""),
+    startsAt: parseJstLocal(String(formData.get("startsAt") || "")),
+    venue: String(formData.get("venue") || ""),
+    description: String(formData.get("description") || ""),
+    capacity: Number(formData.get("capacity")),
+    closesAt: parseJstLocal(String(formData.get("closesAt") || "")),
+  });
+  if (!result.ok) {
+    redirect(`/admin/events/${eventId}?error=${encodeURIComponent(result.error)}`);
+  }
+  redirect(`/admin/events/${eventId}?updated=1`);
+}
+
+/** 下書き(作成中)を公開して募集開始 */
+export async function publishEventAction(formData: FormData) {
+  await requireAdmin();
+  const eventId = String(formData.get("eventId") || "");
+  const result = await publishEvent(eventId);
+  if (!result.ok) {
+    redirect(`/admin/events/${eventId}?error=${encodeURIComponent(result.error)}`);
+  }
+  redirect(`/admin/events/${eventId}?created=1`);
 }
 
 /** 手動締切(F3)。確認ダイアログは画面側で1回挟む */

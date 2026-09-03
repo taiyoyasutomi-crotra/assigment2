@@ -105,6 +105,24 @@ h2 {
   margin-bottom: 16px;
 }
 
+/* 集客率などの進捗バー */
+.progress {
+  background: var(--border);
+  border-radius: 999px;
+  height: 8px;
+  overflow: hidden;
+  margin-top: 6px;
+}
+.progress > span {
+  display: block;
+  height: 100%;
+  background: var(--primary);
+  border-radius: 999px;
+}
+.progress > span.full {
+  background: var(--success);
+}
+
 /* 管理画面: 左サイドバー+コンテンツの2カラム */
 .settings-layout {
   display: flex;
@@ -268,12 +286,14 @@ button:disabled {
   background: #cbd5e1;
   cursor: not-allowed;
 }
-button.secondary {
+button.secondary,
+.button.secondary {
   background: var(--card);
   color: var(--text);
   border: 1px solid var(--border);
 }
-button.secondary:hover {
+button.secondary:hover,
+.button.secondary:hover {
   background: var(--bg);
 }
 button.danger {

@@ -145,24 +145,88 @@ export type CreateEventInput = {
   description: string;
   capacity: number;
   closesAt: Date;
+  /** true なら下書き(作成中)として保存。会員には公開されない */
+  draft?: boolean;
 };
+
+function validateEventInput(input: CreateEventInput): string | null {
+  if (!input.title.trim()) return "イベント名を入力してください";
+  if (!input.venue.trim()) return "会場を入力してください";
+  if (!Number.isInteger(input.capacity) || input.capacity <= 0)
+    return "定員は1以上の整数で入力してください";
+  if (isNaN(input.startsAt.getTime()) || isNaN(input.closesAt.getTime()))
+    return "日時の形式が不正です";
+  if (input.closesAt >= input.startsAt)
+    return "申込締切はイベント開始より前にしてください";
+  return null;
+}
 
 export async function createEvent(
   input: CreateEventInput
 ): Promise<{ id: string } | { error: string }> {
-  if (!input.title.trim()) return { error: "イベント名を入力してください" };
-  if (!input.venue.trim()) return { error: "会場を入力してください" };
-  if (!Number.isInteger(input.capacity) || input.capacity <= 0)
-    return { error: "定員は1以上の整数で入力してください" };
-  if (isNaN(input.startsAt.getTime()) || isNaN(input.closesAt.getTime()))
-    return { error: "日時の形式が不正です" };
-  if (input.closesAt >= input.startsAt)
-    return { error: "申込締切はイベント開始より前にしてください" };
+  const error = validateEventInput(input);
+  if (error) return { error };
 
   const rows = await query<{ id: string }>(
     `insert into events (title, starts_at, venue, description, capacity, closes_at, status)
-     values ($1, $2, $3, $4, $5, $6, 'open') returning id`,
-    [input.title.trim(), input.startsAt, input.venue.trim(), input.description.trim() || null, input.capacity, input.closesAt]
+     values ($1, $2, $3, $4, $5, $6, $7) returning id`,
+    [
+      input.title.trim(),
+      input.startsAt,
+      input.venue.trim(),
+      input.description.trim() || null,
+      input.capacity,
+      input.closesAt,
+      input.draft ? "draft" : "open",
+    ]
   );
   return { id: rows[0].id };
+}
+
+/** 下書き(作成中)の全項目を編集する。公開後のイベントには使わない */
+export async function updateDraftEvent(
+  id: string,
+  input: CreateEventInput
+): Promise<UpdateEventResult> {
+  const e = await getEvent(id);
+  if (!e) return { ok: false, error: "イベントが見つかりません" };
+  if (e.status !== "draft") {
+    return { ok: false, error: "作成中(下書き)のイベントのみ編集できます" };
+  }
+  const error = validateEventInput(input);
+  if (error) return { ok: false, error };
+  await query(
+    `update events set title = $2, starts_at = $3, venue = $4, description = $5,
+            capacity = $6, closes_at = $7
+     where id = $1 and status = 'draft'`,
+    [
+      id,
+      input.title.trim(),
+      input.startsAt,
+      input.venue.trim(),
+      input.description.trim() || null,
+      input.capacity,
+      input.closesAt,
+    ]
+  );
+  return { ok: true };
+}
+
+/** 下書き(作成中)を公開する。公開した瞬間から会員の申込ページが有効になる */
+export async function publishEvent(id: string): Promise<UpdateEventResult> {
+  const e = await getEvent(id);
+  if (!e) return { ok: false, error: "イベントが見つかりません" };
+  if (e.status !== "draft") {
+    return { ok: false, error: "すでに公開されています" };
+  }
+  if (new Date(e.closes_at) <= new Date()) {
+    return {
+      ok: false,
+      error: "申込締切が過去の日時です。締切を編集してから公開してください",
+    };
+  }
+  await query("update events set status = 'open' where id = $1 and status = 'draft'", [
+    id,
+  ]);
+  return { ok: true };
 }

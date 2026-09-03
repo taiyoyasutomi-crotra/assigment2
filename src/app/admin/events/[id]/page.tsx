@@ -18,6 +18,8 @@ import {
   finishEventAction,
   deleteEventAction,
   updateEventAction,
+  updateDraftAction,
+  publishEventAction,
   approveApplicationAction,
   deleteApplicationAction,
 } from "@/app/admin/actions";
@@ -87,6 +89,104 @@ export default async function AdminEventDetailPage({
   const canSelect = !finished && eff === "closed";
   // 定員・締切の変更は選定前まで
   const canEdit = !finished && eff !== "selected";
+
+  // 作成中(下書き): 全項目を編集でき、「公開する」で募集開始。会員には見えない
+  if (event.status === "draft") {
+    return (
+      <main className="container">
+        <p>
+          <Link href="/admin/events?tab=draft">← イベント(作成中)へ戻る</Link>
+        </p>
+        <h1>
+          {event.title}{" "}
+          <span className="badge neutral">{adminStatusLabel(event)}</span>
+        </h1>
+        {sp.updated && <div className="notice success">下書きを保存しました。</div>}
+        {sp.error && <div className="notice error">{sp.error}</div>}
+        <div className="notice info">
+          作成中(下書き)のイベントです。会員にはまだ公開されていません。
+          内容を整えて「公開する」を押すと、申込ページが公開されて募集が始まります。
+        </div>
+
+        <div className="card">
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <form action={publishEventAction}>
+              <input type="hidden" name="eventId" value={event.id} />
+              <ConfirmSubmitButton
+                message={`「${event.title}」を公開します。会員向けの申込ページが公開され、募集が始まります。よろしいですか?`}
+              >
+                公開する(募集開始)
+              </ConfirmSubmitButton>
+            </form>
+            <form action={deleteEventAction}>
+              <input type="hidden" name="eventId" value={event.id} />
+              <ConfirmSubmitButton
+                className="danger"
+                message={`下書き「${event.title}」を削除します。元に戻せません。よろしいですか?`}
+              >
+                削除する
+              </ConfirmSubmitButton>
+            </form>
+          </div>
+        </div>
+
+        <h2>下書きの編集</h2>
+        <div className="card">
+          <form action={updateDraftAction} className="stack">
+            <input type="hidden" name="eventId" value={event.id} />
+            <label className="field">
+              イベント名
+              <input type="text" name="title" required defaultValue={event.title} />
+            </label>
+            <label className="field">
+              開催日時
+              <input
+                type="datetime-local"
+                name="startsAt"
+                required
+                defaultValue={toJstLocalInput(event.starts_at)}
+              />
+            </label>
+            <label className="field">
+              会場
+              <input type="text" name="venue" required defaultValue={event.venue} />
+            </label>
+            <label className="field">
+              概要(任意)
+              <textarea
+                name="description"
+                rows={4}
+                defaultValue={event.description ?? ""}
+                placeholder="イベントの内容・持ち物・注意事項など。会員向けの申込ページと告知文に表示されます"
+              />
+            </label>
+            <label className="field">
+              定員(当選者数)
+              <input
+                type="number"
+                name="capacity"
+                required
+                min={1}
+                defaultValue={event.capacity}
+              />
+            </label>
+            <label className="field">
+              申込締切日時
+              <input
+                type="datetime-local"
+                name="closesAt"
+                required
+                defaultValue={toJstLocalInput(event.closes_at)}
+              />
+            </label>
+            <div>
+              <button type="submit">下書きを保存する</button>
+            </div>
+          </form>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="container">

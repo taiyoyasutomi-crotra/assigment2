@@ -24,7 +24,14 @@ export function ConfirmSubmitButton({
         type="button"
         className={className}
         onClick={(e) => {
-          formRef.current = e.currentTarget.form;
+          const form = e.currentTarget.form;
+          // 入力不備(必須・文字数など)はダイアログを開く前にブラウザの検証で知らせる。
+          // 検証NGのまま進むと送信されず「実行中...」で固まるため
+          if (form && !form.checkValidity()) {
+            form.reportValidity();
+            return;
+          }
+          formRef.current = form;
           setOpen(true);
         }}
       >
@@ -49,8 +56,16 @@ export function ConfirmSubmitButton({
                 className="danger"
                 disabled={pending}
                 onClick={() => {
+                  const form = formRef.current;
+                  // 念のため送信直前にも検証。NGなら固まらずにダイアログを閉じて知らせる
+                  if (form && !form.checkValidity()) {
+                    setOpen(false);
+                    setPending(false);
+                    form.reportValidity();
+                    return;
+                  }
                   setPending(true);
-                  formRef.current?.requestSubmit();
+                  form?.requestSubmit();
                 }}
               >
                 {pending ? "実行中..." : "実行する"}
