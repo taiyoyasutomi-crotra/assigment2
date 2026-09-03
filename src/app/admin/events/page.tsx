@@ -112,7 +112,7 @@ export default async function AdminEventsPage({
   };
 
   return (
-    <main className="container">
+    <main className="container wide">
       <h1>イベント</h1>
       {sp.error && <div className="notice error">{sp.error}</div>}
       {sp.deleted && <div className="notice success">イベントを削除しました。</div>}

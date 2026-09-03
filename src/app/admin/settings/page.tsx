@@ -99,7 +99,7 @@ export default async function AdminSettingsPage({
   );
 
   return (
-    <main className="container">
+    <main className="container wide">
       <h1>管理</h1>
 
       {sp.imported && (

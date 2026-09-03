@@ -81,11 +81,34 @@ a:hover {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* スマホ: ヘッダーは折り返さず1行に収め、ナビは横スクロール */
+@media (max-width: 720px) {
+  .site-header-inner {
+    flex-wrap: nowrap;
+    gap: 8px 12px;
+  }
+  .site-header nav {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .site-header nav::-webkit-scrollbar {
+    display: none;
+  }
+  .site-header .user span {
+    max-width: 6em;
+  }
+}
 
 main.container {
   max-width: 960px;
   margin: 0 auto;
   padding: 24px 16px 64px;
+}
+/* サイドバーを持つ管理系ページはPCで広く使う */
+main.container.wide {
+  max-width: 1240px;
 }
 
 h1 {
@@ -178,28 +201,44 @@ h2 {
 .settings-content > h2:first-child {
   margin-top: 0;
 }
+/* スマホ: サイドバーは1行の横スクロールタブバーにする(見出しは省略) */
 @media (max-width: 720px) {
   .settings-layout {
     flex-direction: column;
+    gap: 12px;
   }
   .settings-nav {
     position: static;
     flex: none;
     width: 100%;
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
     gap: 4px;
-    padding: 8px;
+    padding: 6px;
+  }
+  .settings-nav::-webkit-scrollbar {
+    display: none;
   }
   .settings-nav .nav-group {
-    width: 100%;
-    padding: 4px 8px 0;
+    display: none;
   }
   .settings-nav a,
   .settings-nav a.top {
-    padding: 6px 12px;
-    border-radius: 6px;
-    border-right: none;
+    flex: 0 0 auto;
+    padding: 8px 12px;
+    margin: 0;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--text);
+    white-space: nowrap;
+  }
+  .settings-nav a.active {
+    font-weight: 700;
   }
 }
 
