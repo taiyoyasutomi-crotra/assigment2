@@ -19,16 +19,19 @@ export function SidebarNav({
 
   return (
     <>
-      <button
-        type="button"
-        className="nav-hamburger"
-        onClick={() => setOpen(true)}
-        aria-label="タブメニューを開く"
-        aria-expanded={open}
-      >
-        <span aria-hidden="true">☰</span>
-        <span>{current}</span>
-      </button>
+      {/* スマホ用: 小さな☰ボタン+選択中タブ名(タイトル表示。ボタンは☰のみ) */}
+      <div className="nav-mobile-bar">
+        <button
+          type="button"
+          className="nav-hamburger"
+          onClick={() => setOpen(true)}
+          aria-label="タブメニューを開く"
+          aria-expanded={open}
+        >
+          ☰
+        </button>
+        <span className="nav-current">{current}</span>
+      </div>
       <div
         className={`nav-drawer-backdrop ${open ? "show" : ""}`}
         onClick={() => setOpen(false)}
