@@ -16,6 +16,7 @@ import {
   closeEventAction,
   runSelectionAction,
   finishEventAction,
+  restoreEventAction,
   deleteEventAction,
   updateEventAction,
   updateDraftAction,
@@ -49,6 +50,7 @@ export default async function AdminEventDetailPage({
     waitlisted?: string;
     excluded?: string;
     finished?: string;
+    restored?: string;
     updated?: string;
     approved?: string;
     app_deleted?: string;
@@ -179,6 +181,14 @@ export default async function AdminEventDetailPage({
                 defaultValue={toJstLocalInput(event.closes_at)}
               />
             </label>
+            <label className="field">
+              イベント終了日時(任意。過ぎると自動で完了になります)
+              <input
+                type="datetime-local"
+                name="endsAt"
+                defaultValue={event.ends_at ? toJstLocalInput(event.ends_at) : ""}
+              />
+            </label>
             <div>
               <button type="submit">下書きを保存する</button>
             </div>
@@ -210,6 +220,12 @@ export default async function AdminEventDetailPage({
           イベントを完了にしました(一覧の「終了したイベント」に移動します)。
         </div>
       )}
+      {sp.restored && (
+        <div className="notice success">
+          イベントを復元しました。過去の終了日時はクリアされているので、
+          自動完了を使う場合は「イベント設定の変更」で改めて設定してください。
+        </div>
+      )}
       {sp.updated && <div className="notice success">イベント設定を変更しました。</div>}
       {sp.approved && (
         <div className="notice success">
@@ -238,8 +254,9 @@ export default async function AdminEventDetailPage({
           </div>
         </div>
         <p className="muted">
-          日時: {formatJst(event.starts_at)} / 会場: {event.venue} / 申込締切:{" "}
-          {formatJst(event.closes_at)}
+          日時: {formatJst(event.starts_at)}
+          {event.ends_at && <> 〜 {formatJst(event.ends_at)}</>} / 会場: {event.venue} /
+          申込締切: {formatJst(event.closes_at)}
         </p>
         {event.description && (
           <p style={{ whiteSpace: "pre-wrap" }}>{event.description}</p>
@@ -283,6 +300,17 @@ export default async function AdminEventDetailPage({
               </ConfirmSubmitButton>
             </form>
           )}
+          {finished && (
+            <form action={restoreEventAction}>
+              <input type="hidden" name="eventId" value={event.id} />
+              <ConfirmSubmitButton
+                className="secondary"
+                message={`「${event.title}」を復元し、完了前の状態に戻します。一覧の進行中に戻り、受付画面なども再び使えるようになります。よろしいですか?`}
+              >
+                イベントを復元する
+              </ConfirmSubmitButton>
+            </form>
+          )}
           <form action={deleteEventAction}>
             <input type="hidden" name="eventId" value={event.id} />
             <ConfirmSubmitButton
@@ -300,11 +328,25 @@ export default async function AdminEventDetailPage({
           <h2>イベント設定の変更</h2>
           <div className="card">
             <p className="muted">
-              定員(当選人数)・申込締切・概要は選定前まで変更できます。
+              開催日時・会場・定員(当選人数)・申込締切・終了日時・概要は選定前まで変更できます。
               締切を未来の日時に延ばすと、募集中に戻ります。
+              終了日時を設定すると、その日時を過ぎたイベントは自動で「完了」になります。
             </p>
             <form action={updateEventAction} className="stack">
               <input type="hidden" name="eventId" value={event.id} />
+              <label className="field">
+                開催日時
+                <input
+                  type="datetime-local"
+                  name="startsAt"
+                  required
+                  defaultValue={toJstLocalInput(event.starts_at)}
+                />
+              </label>
+              <label className="field">
+                会場
+                <input type="text" name="venue" required defaultValue={event.venue} />
+              </label>
               <label className="field">
                 定員(当選人数)
                 <input
@@ -322,6 +364,14 @@ export default async function AdminEventDetailPage({
                   name="closesAt"
                   required
                   defaultValue={toJstLocalInput(event.closes_at)}
+                />
+              </label>
+              <label className="field">
+                イベント終了日時(任意。過ぎると自動で完了になります)
+                <input
+                  type="datetime-local"
+                  name="endsAt"
+                  defaultValue={event.ends_at ? toJstLocalInput(event.ends_at) : ""}
                 />
               </label>
               <label className="field">

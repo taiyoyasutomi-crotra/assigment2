@@ -8,6 +8,8 @@ export type EventRow = {
   description: string | null;
   capacity: number;
   closes_at: Date;
+  /** 終了日時(任意)。過ぎると自動で「完了」扱い。未設定なら手動完了まで開催中 */
+  ends_at: Date | null;
   status: "draft" | "open" | "closed" | "selected" | "finished";
 };
 
@@ -23,9 +25,21 @@ export function effectiveStatus(e: EventRow): EventRow["status"] {
   return e.status;
 }
 
+/**
+ * 完了したイベントか。一覧の仕分け・表示に使う。
+ * - 手動で完了(status = finished)
+ * - 終了日時(ends_at)を設定していて、それを過ぎた(自動完了)
+ * 終了日時が未設定なら、手動で完了するまで開催中のまま
+ */
+export function isFinished(e: EventRow): boolean {
+  if (e.status === "finished") return true;
+  if (e.status === "draft") return false;
+  return e.ends_at != null && new Date(e.ends_at) < new Date();
+}
+
 /** 会員向けの状態表示: 募集中 / 締切 / 終了 */
 export function memberStatusLabel(e: EventRow): string {
-  if (e.status !== "draft" && new Date(e.starts_at) < new Date()) return "終了";
+  if (isFinished(e)) return "終了";
   const s = effectiveStatus(e);
   if (s === "open") return "募集中";
   if (s === "finished") return "終了";
@@ -34,6 +48,7 @@ export function memberStatusLabel(e: EventRow): string {
 
 /** 運営者向けの状態表示 */
 export function adminStatusLabel(e: EventRow): string {
+  if (isFinished(e)) return "終了";
   const s = effectiveStatus(e);
   const labels: Record<string, string> = {
     draft: "下書き",
@@ -42,21 +57,46 @@ export function adminStatusLabel(e: EventRow): string {
     selected: "選定済み",
     finished: "終了",
   };
-  if (s !== "draft" && s !== "open" && new Date(e.starts_at) < new Date()) {
-    return "終了";
-  }
   return labels[s];
-}
-
-/** 完了したイベントか(開催日時を過ぎた、または明示的に終了)。一覧の仕分けに使う */
-export function isFinished(e: EventRow): boolean {
-  if (e.status === "finished") return true;
-  return e.status !== "draft" && new Date(e.starts_at) < new Date();
 }
 
 /** イベントを手動で完了にする(一覧の「終了したイベント」へ移る) */
 export async function finishEvent(id: string): Promise<void> {
   await query("update events set status = 'finished' where id = $1", [id]);
+}
+
+/**
+ * 完了したイベントの復元(手動完了の取り消し・終了日時経過による自動完了の解除)。
+ * - 手動完了(status=finished)は、選定済みなら selected、未選定なら
+ *   締切前は open / 締切後は closed に戻す
+ * - 終了日時が過去のままだと即また自動完了になるため、その場合はクリアする
+ *   (必要なら復元後に「イベント設定の変更」で改めて設定する)
+ */
+export async function restoreEvent(id: string): Promise<UpdateEventResult> {
+  const e = await getEvent(id);
+  if (!e) return { ok: false, error: "イベントが見つかりません" };
+  if (!isFinished(e)) return { ok: false, error: "このイベントは完了していません" };
+
+  let newStatus = e.status;
+  if (e.status === "finished") {
+    const selected = await query(
+      `select 1 from applications
+       where event_id = $1 and status in ('won', 'waitlisted') limit 1`,
+      [id]
+    );
+    newStatus =
+      selected.length > 0
+        ? "selected"
+        : new Date(e.closes_at) > new Date()
+          ? "open"
+          : "closed";
+  }
+  const clearEndsAt = e.ends_at != null && new Date(e.ends_at) <= new Date();
+  await query(
+    `update events set status = $2 ${clearEndsAt ? ", ends_at = null" : ""} where id = $1`,
+    [id, newStatus]
+  );
+  return { ok: true };
 }
 
 /** イベントを削除する(申込・チケット・通知履歴・受付アカウントも一緒に消える。取り消し不可) */
@@ -79,32 +119,57 @@ export async function deleteEvent(id: string): Promise<void> {
 
 export type UpdateEventResult = { ok: true } | { ok: false; error: string };
 
-/** 募集中/締切中のイベントの定員(当選人数)・申込締切・概要を変更する */
+/** 募集中/締切中のイベントの開催日時・会場・定員・申込締切・終了日時・概要を変更する */
 export async function updateEventSettings(
   id: string,
-  input: { capacity: number; closesAt: Date; description: string }
+  input: {
+    startsAt: Date;
+    venue: string;
+    capacity: number;
+    closesAt: Date;
+    endsAt: Date | null;
+    description: string;
+  }
 ): Promise<UpdateEventResult> {
   const e = await getEvent(id);
   if (!e) return { ok: false, error: "イベントが見つかりません" };
   if (e.status === "selected" || e.status === "finished") {
     return { ok: false, error: "選定後・完了後のイベントは変更できません" };
   }
+  if (!input.venue.trim()) return { ok: false, error: "会場を入力してください" };
   if (!Number.isInteger(input.capacity) || input.capacity <= 0) {
     return { ok: false, error: "定員は1以上の整数で入力してください" };
   }
-  if (isNaN(input.closesAt.getTime())) {
+  if (isNaN(input.startsAt.getTime()) || isNaN(input.closesAt.getTime())) {
     return { ok: false, error: "日時の形式が不正です" };
   }
-  if (input.closesAt >= new Date(e.starts_at)) {
+  if (input.closesAt >= input.startsAt) {
     return { ok: false, error: "申込締切はイベント開始より前にしてください" };
+  }
+  if (input.endsAt != null) {
+    if (isNaN(input.endsAt.getTime())) {
+      return { ok: false, error: "終了日時の形式が不正です" };
+    }
+    if (input.endsAt <= input.startsAt) {
+      return { ok: false, error: "終了日時は開催日時より後にしてください" };
+    }
   }
   // 締切を未来に延ばした場合は募集中に戻す(手動締切していても延長の意図を優先)
   const reopen = input.closesAt > new Date() && e.status === "closed";
   await query(
-    `update events set capacity = $2, closes_at = $3, description = $4
+    `update events set starts_at = $2, venue = $3, capacity = $4, closes_at = $5,
+            ends_at = $6, description = $7
        ${reopen ? ", status = 'open'" : ""}
      where id = $1`,
-    [id, input.capacity, input.closesAt, input.description.trim() || null]
+    [
+      id,
+      input.startsAt,
+      input.venue.trim(),
+      input.capacity,
+      input.closesAt,
+      input.endsAt,
+      input.description.trim() || null,
+    ]
   );
   return { ok: true };
 }
@@ -145,6 +210,8 @@ export type CreateEventInput = {
   description: string;
   capacity: number;
   closesAt: Date;
+  /** 終了日時(任意)。過ぎると自動で完了扱いになる */
+  endsAt: Date | null;
   /** true なら下書き(作成中)として保存。会員には公開されない */
   draft?: boolean;
 };
@@ -158,6 +225,11 @@ function validateEventInput(input: CreateEventInput): string | null {
     return "日時の形式が不正です";
   if (input.closesAt >= input.startsAt)
     return "申込締切はイベント開始より前にしてください";
+  if (input.endsAt != null) {
+    if (isNaN(input.endsAt.getTime())) return "終了日時の形式が不正です";
+    if (input.endsAt <= input.startsAt)
+      return "終了日時は開催日時より後にしてください";
+  }
   return null;
 }
 
@@ -168,8 +240,8 @@ export async function createEvent(
   if (error) return { error };
 
   const rows = await query<{ id: string }>(
-    `insert into events (title, starts_at, venue, description, capacity, closes_at, status)
-     values ($1, $2, $3, $4, $5, $6, $7) returning id`,
+    `insert into events (title, starts_at, venue, description, capacity, closes_at, ends_at, status)
+     values ($1, $2, $3, $4, $5, $6, $7, $8) returning id`,
     [
       input.title.trim(),
       input.startsAt,
@@ -177,6 +249,7 @@ export async function createEvent(
       input.description.trim() || null,
       input.capacity,
       input.closesAt,
+      input.endsAt,
       input.draft ? "draft" : "open",
     ]
   );
@@ -197,7 +270,7 @@ export async function updateDraftEvent(
   if (error) return { ok: false, error };
   await query(
     `update events set title = $2, starts_at = $3, venue = $4, description = $5,
-            capacity = $6, closes_at = $7
+            capacity = $6, closes_at = $7, ends_at = $8
      where id = $1 and status = 'draft'`,
     [
       id,
@@ -207,6 +280,7 @@ export async function updateDraftEvent(
       input.description.trim() || null,
       input.capacity,
       input.closesAt,
+      input.endsAt,
     ]
   );
   return { ok: true };

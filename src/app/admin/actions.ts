@@ -7,12 +7,19 @@ import { query } from "@/lib/db";
 import {
   createEvent,
   finishEvent,
+  restoreEvent,
   deleteEvent,
   updateEventSettings,
   updateDraftEvent,
   publishEvent,
 } from "@/lib/events";
 import { parseJstLocal } from "@/lib/format";
+
+/** 終了日時など任意の datetime-local 入力。空なら null */
+function parseOptionalJst(value: FormDataEntryValue | null): Date | null {
+  const raw = String(value || "");
+  return raw ? parseJstLocal(raw) : null;
+}
 import { approveApplicationEmail, deleteApplication } from "@/lib/applications";
 import { runSelection } from "@/lib/selection";
 import { previewCancel, executeCancel, type CancelPreview, type CancelResult } from "@/lib/cancel";
@@ -28,6 +35,7 @@ export async function createEventAction(formData: FormData) {
     description: String(formData.get("description") || ""),
     capacity: Number(formData.get("capacity")),
     closesAt: parseJstLocal(String(formData.get("closesAt") || "")),
+    endsAt: parseOptionalJst(formData.get("endsAt")),
     draft,
   });
   if ("error" in result) {
@@ -51,6 +59,7 @@ export async function updateDraftAction(formData: FormData) {
     description: String(formData.get("description") || ""),
     capacity: Number(formData.get("capacity")),
     closesAt: parseJstLocal(String(formData.get("closesAt") || "")),
+    endsAt: parseOptionalJst(formData.get("endsAt")),
   });
   if (!result.ok) {
     redirect(`/admin/events/${eventId}?error=${encodeURIComponent(result.error)}`);
@@ -107,6 +116,17 @@ export async function finishEventAction(formData: FormData) {
   redirect(`/admin/events/${eventId}?finished=1`);
 }
 
+/** 完了したイベントの復元(手動完了の取り消し・自動完了の解除) */
+export async function restoreEventAction(formData: FormData) {
+  await requireAdmin();
+  const eventId = String(formData.get("eventId") || "");
+  const result = await restoreEvent(eventId);
+  if (!result.ok) {
+    redirect(`/admin/events/${eventId}?error=${encodeURIComponent(result.error)}`);
+  }
+  redirect(`/admin/events/${eventId}?restored=1`);
+}
+
 /** イベントを削除する(申込・チケット・通知履歴ごと。取り消し不可) */
 export async function deleteEventAction(formData: FormData) {
   await requireAdmin();
@@ -115,13 +135,16 @@ export async function deleteEventAction(formData: FormData) {
   redirect("/admin/events?deleted=1");
 }
 
-/** 定員(当選人数)・申込締切・概要の変更 */
+/** 開催日時・会場・定員・申込締切・終了日時・概要の変更 */
 export async function updateEventAction(formData: FormData) {
   await requireAdmin();
   const eventId = String(formData.get("eventId") || "");
   const result = await updateEventSettings(eventId, {
+    startsAt: parseJstLocal(String(formData.get("startsAt") || "")),
+    venue: String(formData.get("venue") || ""),
     capacity: Number(formData.get("capacity")),
     closesAt: parseJstLocal(String(formData.get("closesAt") || "")),
+    endsAt: parseOptionalJst(formData.get("endsAt")),
     description: String(formData.get("description") || ""),
   });
   if (!result.ok) {

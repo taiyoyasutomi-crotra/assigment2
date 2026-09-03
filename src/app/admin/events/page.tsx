@@ -192,6 +192,10 @@ export default async function AdminEventsPage({
                     申込締切日時
                     <input type="datetime-local" name="closesAt" required />
                   </label>
+                  <label className="field">
+                    イベント終了日時(任意。過ぎると自動で完了になります)
+                    <input type="datetime-local" name="endsAt" />
+                  </label>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                     <button type="submit">イベントを作成する(公開)</button>
                     <button type="submit" name="mode" value="draft" className="secondary">

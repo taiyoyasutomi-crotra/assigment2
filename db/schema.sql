@@ -33,10 +33,13 @@ create table events (
   description text,  -- イベント概要(任意)。申込ページ・告知文に表示
   capacity    int not null check (capacity > 0),
   closes_at   timestamptz not null,
+  -- 終了日時(任意)。過ぎると自動で「完了」扱い。未設定なら手動完了まで開催中
+  ends_at     timestamptz,
   status      text not null default 'open'
               check (status in ('draft', 'open', 'closed', 'selected', 'finished')),
-  created_at  timestamptz not null default now()
+  created_at  timestamptz not null default now(),
   -- 申込は締切(closes_at)まで無制限に受付。応募 > capacity なら選定時に抽選
+  constraint events_ends_after_starts check (ends_at is null or ends_at > starts_at)
 );
 
 alter table members
