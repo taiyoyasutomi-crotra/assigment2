@@ -221,53 +221,72 @@ h2 {
 .settings-content > h2:first-child {
   margin-top: 0;
 }
-/* タブ開閉バー(スマホ専用。PCでは非表示) */
-.settings-nav .nav-toggle {
+/* ハンバーガーとドロワーの背景(スマホ専用。PCでは非表示) */
+.nav-hamburger {
+  display: none;
+}
+.nav-drawer-backdrop {
   display: none;
 }
 
-/* スマホ: タブ列は「現在のタブ名のバー」に畳み、タップで開閉する */
+/* スマホ: タブ列は普段は格納し、左上の☰でドロワーとして開く */
 @media (max-width: 720px) {
   .settings-layout {
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
   }
-  .settings-nav {
-    flex: none;
-    width: 100%;
-    position: static;
-    padding: 0;
-  }
-  .settings-nav .nav-toggle {
-    display: flex;
-    width: 100%;
-    justify-content: space-between;
+  .nav-hamburger {
+    display: inline-flex;
     align-items: center;
     gap: 8px;
-    background: none;
-    border: none;
-    padding: 12px 14px;
+    align-self: flex-start;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 14px;
     font-family: inherit;
-    font-size: 0.95rem;
-    font-weight: 700;
+    font-size: 0.9rem;
+    font-weight: 600;
     color: var(--text);
     cursor: pointer;
   }
-  .settings-nav .nav-toggle:hover {
+  .nav-hamburger:hover {
     background: var(--bg);
   }
-  .settings-nav .nav-toggle span:last-child {
-    font-size: 0.8rem;
-    font-weight: 500;
-    color: var(--muted);
-  }
-  .settings-nav .nav-items {
-    display: none;
-    border-top: 1px solid var(--border);
-    padding: 4px 0 8px;
-  }
-  .settings-nav.open .nav-items {
+  .nav-drawer-backdrop {
     display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.35);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+    z-index: 40;
+  }
+  .nav-drawer-backdrop.show {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .settings-nav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 260px;
+    max-width: 80vw;
+    margin: 0;
+    flex: none;
+    border: none;
+    border-right: 1px solid var(--border);
+    border-radius: 0;
+    padding: 16px 0;
+    overflow-y: auto;
+    transform: translateX(-105%);
+    transition: transform 0.2s ease;
+    z-index: 41;
+  }
+  .settings-nav.open {
+    transform: translateX(0);
   }
 }
 
