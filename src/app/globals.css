@@ -297,6 +297,9 @@ h2 {
 @media (max-width: 720px) {
   .settings-layout {
     flex-direction: column;
+    /* PC用の flex-start(上端揃え)は縦積みでは「幅を内容サイズに縮める」
+       意味になり、右側に余白ができてしまうため、全幅に戻す */
+    align-items: stretch;
     gap: 12px;
   }
   .nav-mobile-bar {
