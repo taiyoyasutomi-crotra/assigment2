@@ -69,6 +69,7 @@ export type MyApplication = {
   applied_at: Date;
   title: string;
   starts_at: Date;
+  ends_at: Date | null;
   venue: string;
   event_status: string;
   ticket_id: string | null;
@@ -77,7 +78,7 @@ export type MyApplication = {
 export async function listMyApplications(memberId: string): Promise<MyApplication[]> {
   return query<MyApplication>(
     `select a.id, a.event_id, a.status, a.waitlist_order, a.applied_at,
-            e.title, e.starts_at, e.venue, e.status as event_status,
+            e.title, e.starts_at, e.ends_at, e.venue, e.status as event_status,
             t.id as ticket_id
      from applications a
      join events e on e.id = a.event_id
@@ -86,6 +87,12 @@ export async function listMyApplications(memberId: string): Promise<MyApplicatio
      order by e.starts_at asc`,
     [memberId]
   );
+}
+
+/** イベント側から見て完了済みの申込か(手動完了、または終了日時経過) */
+export function isEventFinishedForApplication(a: MyApplication): boolean {
+  if (a.event_status === "finished") return true;
+  return a.ends_at != null && new Date(a.ends_at) < new Date();
 }
 
 export async function getMyApplicationForEvent(eventId: string, memberId: string) {

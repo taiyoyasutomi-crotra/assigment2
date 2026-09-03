@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { requireMember } from "@/lib/auth/session";
-import { listMyApplications } from "@/lib/applications";
+import {
+  listMyApplications,
+  isEventFinishedForApplication,
+  type MyApplication,
+} from "@/lib/applications";
 import {
   listEvents,
   memberStatusLabel,
@@ -11,6 +15,7 @@ import {
 import { listWinnerStats, type WinnerStats } from "@/lib/adminQueries";
 import { countUnreadNotifications } from "@/lib/notify/notifications";
 import { formatJst } from "@/lib/format";
+import { SidebarNav } from "@/components/SidebarNav";
 
 export const dynamic = "force-dynamic";
 
@@ -106,22 +111,19 @@ function AdminActiveEventCard({
   );
 }
 
-export default async function HomePage() {
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
   const member = await requireMember();
+  const sp = await searchParams;
   const events = await listEvents();
   // 進行中と完了を混ぜない: 完了したイベントは下の別セクションへ
   const active = events.filter((e) => !isFinished(e));
   const finished = events.filter(isFinished).reverse(); // 新しい順
 
-  // 参加予定: 当選していて、まだ開催が終わっていないイベント。
-  // 当日にQRチケットへすぐ辿り着けるよう、ホームの最上部に出す
   const myApplications = member.role === "admin" ? [] : await listMyApplications(member.id);
-  const upcomingWins = myApplications.filter(
-    (a) =>
-      a.status === "won" &&
-      a.ticket_id &&
-      new Date(a.starts_at).getTime() > Date.now() - 24 * 3600 * 1000
-  );
 
   // 運営者ホーム: 募集中(集客率)と開催中(当選者の管理)を分けて表示
   if (member.role === "admin") {
@@ -170,7 +172,73 @@ export default async function HomePage() {
     );
   }
 
+  // 会員ホーム: 自分との関わりで4つに仕分ける
+  // 参加予定(当選) / 抽選中 / 募集中(未応募) / 終了(参加履歴)
   const unread = await countUnreadNotifications(member.id);
+  const wins = myApplications.filter(
+    (a) => a.status === "won" && !isEventFinishedForApplication(a)
+  );
+  const applying = myApplications.filter(
+    (a) =>
+      (a.status === "applied" || a.status === "waitlisted") &&
+      !isEventFinishedForApplication(a)
+  );
+  const appliedEventIds = new Set(myApplications.map((a) => a.event_id));
+  const openEvents = active.filter(
+    (e) => effectiveStatus(e) === "open" && !appliedEventIds.has(e.id)
+  );
+  const pastWins = myApplications
+    .filter((a) => a.status === "won" && isEventFinishedForApplication(a))
+    .reverse(); // 新しい順
+
+  type MemberTab = "wins" | "applying" | "open" | "past";
+  const validTabs: MemberTab[] = ["wins", "applying", "open", "past"];
+  // タブ未指定時は「中身のある一番上のタブ」を開く
+  const defaultTab: MemberTab =
+    wins.length > 0 ? "wins" : applying.length > 0 ? "applying" : "open";
+  const tab: MemberTab = validTabs.includes(sp.tab as MemberTab)
+    ? (sp.tab as MemberTab)
+    : defaultTab;
+
+  const tabLabels: Record<MemberTab, string> = {
+    wins: "参加予定(当選)",
+    applying: "抽選中",
+    open: "募集中(未応募)",
+    past: "終了(参加履歴)",
+  };
+
+  const navItem = (t: MemberTab, count: number) => (
+    <Link
+      href={`/?tab=${t}`}
+      className={tab === t ? "active" : ""}
+    >
+      {tabLabels[t]}
+      {count > 0 && <span className="muted"> ({count})</span>}
+    </Link>
+  );
+
+  const winCard = (a: MyApplication, past: boolean) => (
+    <div key={a.id} className="event-card">
+      <div className="title">
+        {a.title}{" "}
+        {past ? (
+          <span className="badge finished">✓ 参加(終了)</span>
+        ) : (
+          <span className="badge won">当選</span>
+        )}
+      </div>
+      <div className="meta">
+        {formatJst(a.starts_at)} / {a.venue}
+      </div>
+      {!past && a.ticket_id && (
+        <div style={{ marginTop: 10 }}>
+          <Link href={`/my/tickets/${a.ticket_id}`} className="button">
+            入場QRチケットを表示
+          </Link>
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <main className="container">
@@ -181,44 +249,69 @@ export default async function HomePage() {
           <Link href="/notifications">お知らせを確認する</Link>
         </div>
       )}
-      {upcomingWins.length > 0 && (
-        <>
-          <h2 style={{ marginTop: 8 }}>参加予定のイベント</h2>
-          <div className="event-list">
-            {upcomingWins.map((a) => (
-              <div key={a.id} className="event-card">
-                <div className="title">
-                  {a.title} <span className="badge won">当選</span>
-                </div>
-                <div className="meta">
-                  {formatJst(a.starts_at)} / {a.venue}
-                </div>
-                <div style={{ marginTop: 10 }}>
-                  <Link href={`/my/tickets/${a.ticket_id}`} className="button">
-                    入場QRチケットを表示
+
+      <div className="settings-layout">
+        <SidebarNav current={tabLabels[tab]}>
+          <div className="nav-group">マイイベント</div>
+          {navItem("wins", wins.length)}
+          {navItem("applying", applying.length)}
+          {navItem("open", openEvents.length)}
+          {navItem("past", pastWins.length)}
+        </SidebarNav>
+
+        <section className="settings-content">
+          <h2>{tabLabels[tab]}</h2>
+
+          {tab === "wins" &&
+            (wins.length === 0 ? (
+              <p className="muted">
+                参加予定のイベントはありません。抽選結果は「抽選中」タブと
+                <Link href="/my">申込状況</Link>で確認できます。
+              </p>
+            ) : (
+              <div className="event-list">{wins.map((a) => winCard(a, false))}</div>
+            ))}
+
+          {tab === "applying" &&
+            (applying.length === 0 ? (
+              <p className="muted">
+                抽選中の申込はありません。「募集中(未応募)」タブからお申し込みください。
+              </p>
+            ) : (
+              <div className="event-list">
+                {applying.map((a) => (
+                  <Link key={a.id} href={`/events/${a.event_id}`} className="event-card">
+                    <div className="title">
+                      {a.title} <span className="badge applied">抽選中</span>
+                    </div>
+                    <div className="meta">
+                      {formatJst(a.starts_at)} / {a.venue} / 申込日{" "}
+                      {formatJst(a.applied_at)}
+                    </div>
                   </Link>
-                </div>
+                ))}
               </div>
             ))}
-          </div>
-        </>
-      )}
-      {active.length === 0 && <p className="muted">開催予定のイベントはありません</p>}
-      <div className="event-list">
-        {active.map((e) => (
-          <EventCard key={e.id} event={e} finished={false} />
-        ))}
-      </div>
-      {finished.length > 0 && (
-        <>
-          <h2>終了したイベント</h2>
-          <div className="event-list">
-            {finished.map((e) => (
-              <EventCard key={e.id} event={e} finished={true} />
+
+          {tab === "open" &&
+            (openEvents.length === 0 ? (
+              <p className="muted">現在、未応募で募集中のイベントはありません。</p>
+            ) : (
+              <div className="event-list">
+                {openEvents.map((e) => (
+                  <EventCard key={e.id} event={e} finished={false} />
+                ))}
+              </div>
             ))}
-          </div>
-        </>
-      )}
+
+          {tab === "past" &&
+            (pastWins.length === 0 ? (
+              <p className="muted">終了した参加イベントはまだありません。</p>
+            ) : (
+              <div className="event-list">{pastWins.map((a) => winCard(a, true))}</div>
+            ))}
+        </section>
+      </div>
     </main>
   );
 }
