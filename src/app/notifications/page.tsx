@@ -1,19 +1,17 @@
 import Link from "next/link";
 import { requireMember } from "@/lib/auth/session";
-import {
-  listMyNotifications,
-  markAllNotificationsRead,
-} from "@/lib/notify/notifications";
+import { listMyNotifications } from "@/lib/notify/notifications";
 import { formatJst } from "@/lib/format";
-import { deleteNotificationAction } from "./actions";
+import { MarkNotificationsRead } from "@/components/MarkNotificationsRead";
+import { deleteNotificationAction, markNotificationsReadAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 
 // 会員向けのお知らせ(当選・繰上当選)。
 // 一覧は件名のみ表示し、タップ(クリック)で本文を展開する。
 // 新着(未読)は白、既読はグレーアウトで色分けする。
-// このページを開いた時点で全件を既読にする(次回以降はグレー表示になり、
-// ナビの未読バッジも消える)
+// このページを開くと全件を既読にし、ヘッダーの未読バッジも消える
+// (既読化は MarkNotificationsRead がクライアント側から実行する)
 export default async function NotificationsPage({
   searchParams,
 }: {
@@ -22,11 +20,12 @@ export default async function NotificationsPage({
   const member = await requireMember();
   const sp = await searchParams;
   const notifications = await listMyNotifications(member.id);
-  await markAllNotificationsRead(member.id);
+  const hasUnread = notifications.some((n) => !n.read_at);
 
   return (
     <main className="container">
       <h1>お知らせ</h1>
+      {hasUnread && <MarkNotificationsRead action={markNotificationsReadAction} />}
       {sp.deleted && <div className="notice success">お知らせを削除しました。</div>}
       {notifications.length === 0 ? (
         <p className="muted">
