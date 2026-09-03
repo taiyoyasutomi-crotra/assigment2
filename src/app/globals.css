@@ -81,13 +81,25 @@ a:hover {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* スマホ: ヘッダーは折り返さず1行に収め、ナビは横スクロール */
+/* スマホ: ヘッダーは「ブランド+ユーザー」の行と、その下のナビタブ行の2段にする */
 @media (max-width: 720px) {
   .site-header-inner {
-    flex-wrap: nowrap;
-    gap: 8px 12px;
+    flex-wrap: wrap;
+    gap: 0 12px;
+  }
+  .site-header .brand {
+    order: 1;
+  }
+  .site-header .user {
+    order: 2;
+    margin-left: auto;
   }
   .site-header nav {
+    order: 3;
+    flex-basis: 100%;
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid var(--border);
     flex-wrap: nowrap;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
@@ -97,7 +109,7 @@ a:hover {
     display: none;
   }
   .site-header .user span {
-    max-width: 6em;
+    max-width: 8em;
   }
 }
 
@@ -198,47 +210,40 @@ h2 {
   flex: 1;
   min-width: 0;
 }
+/* 狭い画面で入力欄がカードからはみ出さないように */
+.settings-content input,
+.settings-content select,
+.settings-content textarea {
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
 .settings-content > h2:first-child {
   margin-top: 0;
 }
-/* スマホ: サイドバーは1行の横スクロールタブバーにする(見出しは省略) */
+/* スマホ: PCと同じ左タブ列をコンパクト化して維持する */
 @media (max-width: 720px) {
   .settings-layout {
-    flex-direction: column;
-    gap: 12px;
+    gap: 10px;
   }
   .settings-nav {
+    flex: 0 0 130px;
     position: static;
-    flex: none;
-    width: 100%;
-    display: flex;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    gap: 4px;
-    padding: 6px;
-  }
-  .settings-nav::-webkit-scrollbar {
-    display: none;
+    padding: 6px 0;
   }
   .settings-nav .nav-group {
-    display: none;
+    font-size: 0.85rem;
+    padding: 10px 10px 2px;
   }
-  .settings-nav a,
+  .settings-nav a {
+    font-size: 0.82rem;
+    padding: 6px 8px 6px 16px;
+  }
   .settings-nav a.top {
-    flex: 0 0 auto;
-    padding: 8px 12px;
-    margin: 0;
-    border: none;
-    border-radius: 8px;
-    font-size: 0.9rem;
-    font-weight: 500;
-    color: var(--text);
-    white-space: nowrap;
-  }
-  .settings-nav a.active {
-    font-weight: 700;
+    font-size: 0.85rem;
+    padding-left: 10px;
+    padding-top: 10px;
+    margin-top: 8px;
   }
 }
 
