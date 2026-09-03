@@ -18,6 +18,14 @@ import type { Member } from "./provider";
 
 const TOKEN_TTL_MINUTES = 15;
 
+// メールアドレスから会員を1人に特定するときの優先順位。
+// デモデータ等で同じアドレスを複数アカウントが共有している場合、
+// 運営者 > 受付 > 会員、同役割なら作成が古い順で解決する
+// (単純な created_at 順だと、運営者がパスワードを再設定しても
+//  同アドレスの古い会員行が対象になり「変更が効かない」事故が起きる)。
+const CANONICAL_MEMBER_ORDER =
+  "order by case role when 'admin' then 0 when 'checkin' then 1 else 2 end, created_at";
+
 export function authMode(): "mock" | "fans_code" {
   return process.env.AUTH_MODE === "fans_code" ? "fans_code" : "mock";
 }
@@ -138,7 +146,7 @@ export async function verifyLoginToken(token: string): Promise<VerifyResult> {
 
     const existing = await client.query(
       `select id, display_name, email, role, is_active, checkin_event_id
-       from members where lower(email) = $1 order by created_at limit 1`,
+       from members where lower(email) = $1 ${CANONICAL_MEMBER_ORDER} limit 1`,
       [row.email]
     );
     let member: Member;
@@ -184,7 +192,7 @@ export async function loginWithPassword(input: {
   const rows = await query<Member & { password_hash: string | null }>(
     `select id, display_name, email, role, is_active, checkin_event_id, password_hash
      from members where lower(email) = $1 and is_active
-     order by created_at limit 1`,
+     ${CANONICAL_MEMBER_ORDER} limit 1`,
     [email]
   );
   const row = rows[0];
@@ -236,7 +244,7 @@ export async function resetPasswordWithToken(
     const updated = await client.query(
       `update members set password_hash = $2
        where id = (select id from members where lower(email) = $1 and is_active
-                   order by created_at limit 1)
+                   ${CANONICAL_MEMBER_ORDER} limit 1)
        returning id, display_name, email, role, is_active, checkin_event_id`,
       [row.email, hashPassword(password)]
     );
