@@ -6,6 +6,7 @@ import { appUrl } from "@/lib/config";
 import { formatJst } from "@/lib/format";
 import { CopyButton } from "@/components/CopyButton";
 import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
+import { SidebarNav } from "@/components/SidebarNav";
 import { listAdmins, listAllUsers } from "@/lib/admins";
 import { listAllCheckinStaff } from "@/lib/checkinStaff";
 import { listEvents, isFinished } from "@/lib/events";
@@ -55,6 +56,15 @@ const roleLabels: Record<string, string> = {
   admin: "運営者",
   checkin: "受付",
   member: "会員",
+};
+
+const tabLabels: Record<Tab, string> = {
+  admins: "運営ユーザー",
+  staff: "受付ユーザー",
+  roster: "会員ユーザー(CSV)",
+  pw_admin: "運営ユーザーパスワード",
+  pw_checkin: "受付ユーザーパスワード",
+  pw_member: "会員ユーザーパスワード",
 };
 
 export default async function AdminSettingsPage({
@@ -138,7 +148,7 @@ export default async function AdminSettingsPage({
       )}
 
       <div className="settings-layout">
-        <aside className="settings-nav">
+        <SidebarNav current={tabLabels[tab]}>
           <div className="nav-group">ユーザー管理</div>
           {navItem("admins", "運営ユーザー")}
           {navItem("staff", "受付ユーザー")}
@@ -147,7 +157,7 @@ export default async function AdminSettingsPage({
           {navItem("pw_admin", "運営ユーザーパスワード")}
           {navItem("pw_checkin", "受付ユーザーパスワード")}
           {navItem("pw_member", "会員ユーザーパスワード")}
-        </aside>
+        </SidebarNav>
 
         <section className="settings-content">
           {tab === "admins" && (

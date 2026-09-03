@@ -221,29 +221,53 @@ h2 {
 .settings-content > h2:first-child {
   margin-top: 0;
 }
-/* スマホ: PCと同じ左タブ列をコンパクト化して維持する */
+/* タブ開閉バー(スマホ専用。PCでは非表示) */
+.settings-nav .nav-toggle {
+  display: none;
+}
+
+/* スマホ: タブ列は「現在のタブ名のバー」に畳み、タップで開閉する */
 @media (max-width: 720px) {
   .settings-layout {
+    flex-direction: column;
     gap: 10px;
   }
   .settings-nav {
-    flex: 0 0 130px;
+    flex: none;
+    width: 100%;
     position: static;
-    padding: 6px 0;
+    padding: 0;
   }
-  .settings-nav .nav-group {
-    font-size: 0.85rem;
-    padding: 10px 10px 2px;
+  .settings-nav .nav-toggle {
+    display: flex;
+    width: 100%;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    background: none;
+    border: none;
+    padding: 12px 14px;
+    font-family: inherit;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text);
+    cursor: pointer;
   }
-  .settings-nav a {
-    font-size: 0.82rem;
-    padding: 6px 8px 6px 16px;
+  .settings-nav .nav-toggle:hover {
+    background: var(--bg);
   }
-  .settings-nav a.top {
-    font-size: 0.85rem;
-    padding-left: 10px;
-    padding-top: 10px;
-    margin-top: 8px;
+  .settings-nav .nav-toggle span:last-child {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--muted);
+  }
+  .settings-nav .nav-items {
+    display: none;
+    border-top: 1px solid var(--border);
+    padding: 4px 0 8px;
+  }
+  .settings-nav.open .nav-items {
+    display: block;
   }
 }
 

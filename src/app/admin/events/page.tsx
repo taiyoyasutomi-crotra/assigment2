@@ -9,6 +9,7 @@ import {
 } from "@/lib/events";
 import { formatJst } from "@/lib/format";
 import { createEventAction } from "@/app/admin/actions";
+import { SidebarNav } from "@/components/SidebarNav";
 
 export const dynamic = "force-dynamic";
 
@@ -96,6 +97,14 @@ export default async function AdminEventsPage({
     </Link>
   );
 
+  const tabLabels: Record<Tab, string> = {
+    draft: "作成中",
+    open: "募集中",
+    active: "開催中",
+    finished: "終了",
+    new: "新規イベントの作成",
+  };
+
   const emptyMessage: Record<Exclude<Tab, "new">, string> = {
     draft:
       "作成中のイベントはありません。新規イベントの作成フォームで「一時保存」すると、ここに入ります。",
@@ -124,7 +133,7 @@ export default async function AdminEventsPage({
       )}
 
       <div className="settings-layout">
-        <aside className="settings-nav">
+        <SidebarNav current={tabLabels[tab]}>
           <div className="nav-group">イベント</div>
           {navItem("draft", "作成中", drafts.length)}
           {navItem("open", "募集中", open.length)}
@@ -132,7 +141,7 @@ export default async function AdminEventsPage({
           {navItem("finished", "終了", finished.length)}
           <div className="nav-group">新規イベント</div>
           {navItem("new", "作成")}
-        </aside>
+        </SidebarNav>
 
         <section className="settings-content">
           {tab === "new" ? (
