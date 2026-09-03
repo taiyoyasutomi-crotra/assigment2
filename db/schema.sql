@@ -80,6 +80,7 @@ create table notifications (
   error      text,
   sent_at    timestamptz,
   read_at    timestamptz,  -- 会員がお知らせを開いた日時(null = 未読)
+  deleted_at timestamptz,  -- 会員が削除した日時(会員の画面からのみ消える)
   created_at timestamptz not null default now()
 );
 

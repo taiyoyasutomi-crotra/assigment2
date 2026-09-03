@@ -37,11 +37,11 @@ export type MyNotification = {
   read_at: Date | null;
 };
 
-/** 会員向け: 自分宛のお知らせ一覧(新しい順) */
+/** 会員向け: 自分宛のお知らせ一覧(新しい順。削除済みは除く) */
 export async function listMyNotifications(memberId: string): Promise<MyNotification[]> {
   return query<MyNotification>(
     `select id, kind, subject, body, created_at, read_at
-     from notifications where member_id = $1
+     from notifications where member_id = $1 and deleted_at is null
      order by created_at desc`,
     [memberId]
   );
@@ -50,7 +50,8 @@ export async function listMyNotifications(memberId: string): Promise<MyNotificat
 /** 会員向け: 未読のお知らせ数(ナビのバッジ表示用) */
 export async function countUnreadNotifications(memberId: string): Promise<number> {
   const rows = await query<{ c: number }>(
-    "select count(*)::int as c from notifications where member_id = $1 and read_at is null",
+    `select count(*)::int as c from notifications
+     where member_id = $1 and read_at is null and deleted_at is null`,
     [memberId]
   );
   return rows[0].c;
@@ -61,5 +62,20 @@ export async function markAllNotificationsRead(memberId: string): Promise<void> 
   await query(
     "update notifications set read_at = now() where member_id = $1 and read_at is null",
     [memberId]
+  );
+}
+
+/**
+ * 会員向け: お知らせの削除(本人のもののみ)。
+ * 行は消さずソフト削除にする: 運営側の通知履歴(配信・既読の記録)は残る
+ */
+export async function deleteMyNotification(
+  notificationId: string,
+  memberId: string
+): Promise<void> {
+  await query(
+    `update notifications set deleted_at = now()
+     where id = $1 and member_id = $2 and deleted_at is null`,
+    [notificationId, memberId]
   );
 }

@@ -140,6 +140,54 @@ h2 {
   margin-bottom: 16px;
 }
 
+/* お知らせ: 件名のみのアコーディオン。新着=白 / 既読=グレーアウト */
+.notif {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 10px;
+}
+.notif.read {
+  background: #eceef1;
+  opacity: 0.75;
+}
+.notif summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  cursor: pointer;
+  list-style: none;
+}
+.notif summary::-webkit-details-marker {
+  display: none;
+}
+.notif .notif-subject {
+  font-weight: 600;
+  min-width: 0;
+}
+.notif.read .notif-subject {
+  font-weight: 500;
+  color: var(--muted);
+}
+.notif .notif-date {
+  flex: none;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+.notif .notif-date::after {
+  content: " ▼";
+  font-size: 0.7rem;
+}
+.notif[open] .notif-date::after {
+  content: " ▲";
+}
+.notif .notif-body {
+  padding: 0 16px 14px;
+  border-top: 1px solid var(--border);
+}
+
 /* ナビの未読バッジ(お知らせの件数) */
 .nav-badge {
   display: inline-block;

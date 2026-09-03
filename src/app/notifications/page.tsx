@@ -5,37 +5,63 @@ import {
   markAllNotificationsRead,
 } from "@/lib/notify/notifications";
 import { formatJst } from "@/lib/format";
+import { deleteNotificationAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 
 // 会員向けのお知らせ(当選・繰上当選)。
-// 開いた時点で全件を既読にする(未読バッジはナビから消える)
-export default async function NotificationsPage() {
+// 一覧は件名のみ表示し、タップ(クリック)で本文を展開する。
+// 新着(未読)は白、既読はグレーアウトで色分けする。
+// このページを開いた時点で全件を既読にする(次回以降はグレー表示になり、
+// ナビの未読バッジも消える)
+export default async function NotificationsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ deleted?: string }>;
+}) {
   const member = await requireMember();
+  const sp = await searchParams;
   const notifications = await listMyNotifications(member.id);
   await markAllNotificationsRead(member.id);
 
   return (
     <main className="container">
       <h1>お知らせ</h1>
+      {sp.deleted && <div className="notice success">お知らせを削除しました。</div>}
       {notifications.length === 0 ? (
         <p className="muted">
           お知らせはまだありません。抽選の結果は<Link href="/my">申込状況</Link>
           からも確認できます。
         </p>
       ) : (
-        <div className="event-list">
+        <>
+          <p className="muted">件名をタップすると本文が開きます。</p>
           {notifications.map((n) => (
-            <div key={n.id} className="event-card">
-              <div className="title">
-                {n.subject}{" "}
-                {!n.read_at && <span className="badge won">新着</span>}
+            <details key={n.id} className={`notif ${n.read_at ? "read" : ""}`}>
+              <summary>
+                <span className="notif-subject">
+                  {n.subject}
+                  {!n.read_at && (
+                    <>
+                      {" "}
+                      <span className="badge won">新着</span>
+                    </>
+                  )}
+                </span>
+                <span className="notif-date">{formatJst(n.created_at)}</span>
+              </summary>
+              <div className="notif-body">
+                <p style={{ whiteSpace: "pre-wrap" }}>{n.body}</p>
+                <form action={deleteNotificationAction}>
+                  <input type="hidden" name="notificationId" value={n.id} />
+                  <button type="submit" className="secondary small">
+                    このお知らせを削除
+                  </button>
+                </form>
               </div>
-              <div className="meta">{formatJst(n.created_at)}</div>
-              <p style={{ whiteSpace: "pre-wrap", marginBottom: 0 }}>{n.body}</p>
-            </div>
+            </details>
           ))}
-        </div>
+        </>
       )}
     </main>
   );
