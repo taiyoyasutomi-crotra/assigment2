@@ -143,7 +143,6 @@ export default async function AdminSettingsPage({
           {navItem("admins", "運営ユーザー")}
           {navItem("staff", "受付ユーザー")}
           {navItem("roster", "会員ユーザー(CSV)")}
-          <div className="nav-group">アカウント</div>
           {navItem("password", "パスワード", true)}
         </aside>
 

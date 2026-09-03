@@ -154,9 +154,12 @@ h2 {
 }
 .settings-nav a.top {
   padding-left: 16px;
+  padding-top: 12px;
   font-size: 1rem;
   font-weight: 700;
   color: var(--text);
+  margin-top: 10px;
+  border-top: 1px solid var(--border);
 }
 .settings-nav a:hover {
   text-decoration: none;
