@@ -1,14 +1,15 @@
 // キャンセルと繰上(F5)。
 // 操作は「当選者の行のキャンセルボタン(1クリック)+ 確認ダイアログ(2重確認)」。
 // 承認後は 1 トランザクションで キャンセル → チケット無効化 → 待機1位の繰上 →
-// チケット発行 → 繰上当選通知の記録 まで実行する。
+// チケット発行 → 繰上当選のお知らせ(アプリ内通知)の記録 まで実行する。
 // キャンセル1件につき繰上は1件。同じ人が2回繰り上がることはない
 // (繰上時に status が waitlisted → won に変わるため、次回の候補から外れる)。
+// 会員自身によるキャンセル(マイページ)も executeCancel / withdrawApplication を使う。
 import { withTransaction, query } from "@/lib/db";
 import { PROMOTION_DEADLINE_HOURS } from "@/lib/config";
 import { buildWinMail } from "@/lib/mail";
 import { issueTicket } from "@/lib/tickets";
-import { recordNotification, deliverNotification } from "@/lib/notify/notifications";
+import { recordNotification } from "@/lib/notify/notifications";
 
 function promotionDeadline(startsAt: Date | string): Date {
   return new Date(
@@ -170,7 +171,6 @@ export async function executeCancel(applicationId: string): Promise<CancelResult
     };
   });
 
-  if (result.ok && result.nid) await deliverNotification(result.nid);
   if (result.ok) {
     return {
       ok: true,
@@ -179,4 +179,30 @@ export async function executeCancel(applicationId: string): Promise<CancelResult
     };
   }
   return { ok: false, error: result.error };
+}
+
+export type WithdrawResult = { ok: true } | { ok: false; error: string };
+
+/**
+ * 選定前の申込取消(会員自身の操作)。
+ * 抽選中(applied)・待機(waitlisted)の申込をキャンセルにする。
+ * 当選(won)はチケット無効化と繰上が必要なため executeCancel を使う。
+ */
+export async function withdrawApplication(
+  applicationId: string,
+  memberId: string
+): Promise<WithdrawResult> {
+  const rows = await query<{ id: string }>(
+    `update applications set status = 'cancelled', waitlist_order = null
+     where id = $1 and member_id = $2 and status in ('applied', 'waitlisted')
+     returning id`,
+    [applicationId, memberId]
+  );
+  if (!rows[0]) {
+    return {
+      ok: false,
+      error: "この申込は取り消せません(処理済みの可能性があります)",
+    };
+  }
+  return { ok: true };
 }

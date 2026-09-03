@@ -66,6 +66,8 @@ create table tickets (
   created_at     timestamptz not null default now()
 );
 
+-- 当選・繰上のお知らせ(アプリ内通知)。
+-- メールでは送らない(無料枠の制約と運用方針)。email は宛先の記録として残す
 create table notifications (
   id         uuid primary key default gen_random_uuid(),
   member_id  uuid not null references members(id),
@@ -74,9 +76,10 @@ create table notifications (
   email      text not null,
   subject    text not null,
   body       text not null,
-  status     text not null default 'pending' check (status in ('pending', 'sent', 'failed')),
+  status     text not null default 'sent' check (status in ('pending', 'sent', 'failed')),
   error      text,
   sent_at    timestamptz,
+  read_at    timestamptz,  -- 会員がお知らせを開いた日時(null = 未読)
   created_at timestamptz not null default now()
 );
 

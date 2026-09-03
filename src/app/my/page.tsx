@@ -3,6 +3,8 @@ import { requireMember } from "@/lib/auth/session";
 import { listMyApplications } from "@/lib/applications";
 import { PROMOTION_DEADLINE_HOURS } from "@/lib/config";
 import { formatJst } from "@/lib/format";
+import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
+import { selfCancelAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -35,12 +37,26 @@ function statusView(app: {
   }
 }
 
-export default async function MyPage() {
+export default async function MyPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ cancelled?: string; error?: string }>;
+}) {
   const member = await requireMember();
+  const sp = await searchParams;
   const applications = await listMyApplications(member.id);
   return (
     <main className="container">
       <h1>自分の申込状況</h1>
+      {sp.cancelled === "won" && (
+        <div className="notice success">
+          参加をキャンセルしました。チケットは無効になっています。
+        </div>
+      )}
+      {sp.cancelled === "1" && (
+        <div className="notice success">申込を取り消しました。</div>
+      )}
+      {sp.error && <div className="notice error">{sp.error}</div>}
       {applications.length === 0 && (
         <p className="muted">
           申込はまだありません。<Link href="/">イベント一覧</Link>からお申し込みください。
@@ -56,11 +72,20 @@ export default async function MyPage() {
               <th>申込日</th>
               <th>状況</th>
               <th>チケット</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
             {applications.map((a) => {
               const view = statusView(a);
+              // キャンセル可能な条件: 開催前のイベントで、
+              // - 抽選中(applied/waitlisted) → 申込の取消
+              // - 当選(won) → 参加キャンセル(チケット無効化・繰上が発生する)
+              const upcoming =
+                new Date(a.starts_at) > new Date() && a.event_status !== "finished";
+              const canWithdraw =
+                upcoming && (a.status === "applied" || a.status === "waitlisted");
+              const canCancelWin = upcoming && a.status === "won";
               return (
                 <tr key={a.id}>
                   <td>
@@ -76,6 +101,30 @@ export default async function MyPage() {
                       <Link href={`/my/tickets/${a.ticket_id}`}>表示する</Link>
                     ) : (
                       <span className="muted">—</span>
+                    )}
+                  </td>
+                  <td>
+                    {canWithdraw && (
+                      <form action={selfCancelAction}>
+                        <input type="hidden" name="applicationId" value={a.id} />
+                        <ConfirmSubmitButton
+                          className="secondary small"
+                          message={`「${a.title}」の申込を取り消します。よろしいですか?`}
+                        >
+                          申込を取り消す
+                        </ConfirmSubmitButton>
+                      </form>
+                    )}
+                    {canCancelWin && (
+                      <form action={selfCancelAction}>
+                        <input type="hidden" name="applicationId" value={a.id} />
+                        <ConfirmSubmitButton
+                          className="danger small"
+                          message={`「${a.title}」への参加をキャンセルします。入場チケットは無効になり、元に戻せません。よろしいですか?`}
+                        >
+                          参加をキャンセル
+                        </ConfirmSubmitButton>
+                      </form>
                     )}
                   </td>
                 </tr>

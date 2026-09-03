@@ -140,6 +140,22 @@ h2 {
   margin-bottom: 16px;
 }
 
+/* ナビの未読バッジ(お知らせの件数) */
+.nav-badge {
+  display: inline-block;
+  min-width: 18px;
+  padding: 0 5px;
+  margin-left: 4px;
+  border-radius: 999px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  vertical-align: middle;
+}
+
 /* 集客率などの進捗バー */
 .progress {
   background: var(--border);

@@ -221,7 +221,7 @@ export default async function AdminEventDetailPage({
         <div className="notice success">
           選定を実行しました(当選 {sp.selected} 名 / 待機 {sp.waitlisted ?? 0} 名
           {Number(sp.excluded) > 0 && <> / 名簿外のため対象外・落選 {sp.excluded} 名</>}
-          )。当選者にのみ通知を送信しています。
+          )。当選者のマイページに「お知らせ」を配信しました(メールは送りません)。
         </div>
       )}
       {sp.error && <div className="notice error">{sp.error}</div>}
@@ -472,7 +472,7 @@ export default async function AdminEventDetailPage({
         </div>
       )}
 
-      <h2>通知履歴</h2>
+      <h2>通知履歴(アプリ内のお知らせ)</h2>
       {notifications.length === 0 ? (
         <p className="muted">通知はまだありません。</p>
       ) : (
@@ -484,7 +484,7 @@ export default async function AdminEventDetailPage({
               <th>宛先</th>
               <th>種別</th>
               <th>件名</th>
-              <th>送信結果</th>
+              <th>状態</th>
             </tr>
           </thead>
           <tbody>
@@ -499,16 +499,14 @@ export default async function AdminEventDetailPage({
                 <td>{n.kind === "promotion_won" ? "繰上当選" : "当選"}</td>
                 <td>{n.subject}</td>
                 <td>
-                  {n.status === "sent" && <span className="badge won">送信済み</span>}
-                  {n.status === "failed" && (
+                  {n.read_at ? (
                     <>
-                      <span className="badge lost">失敗</span>
+                      <span className="badge won">既読</span>
                       <br />
-                      <span className="muted">{n.error}</span>
+                      <span className="muted">{formatJst(n.read_at)}</span>
                     </>
-                  )}
-                  {n.status === "pending" && (
-                    <span className="badge neutral">送信中</span>
+                  ) : (
+                    <span className="badge neutral">未読</span>
                   )}
                 </td>
               </tr>

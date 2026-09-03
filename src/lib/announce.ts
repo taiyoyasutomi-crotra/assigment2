@@ -18,8 +18,8 @@ export function buildAnnouncement(event: EventRow): string {
     `お申し込みはこちら: ${url}`,
     `申込締切: ${formatJst(event.closes_at)}`,
     "",
-    "抽選・繰上の結果は、当選された方にメールでお知らせします。",
-    `結果はマイページの申込状況(${appUrl()}/my)からも確認できます。`,
+    "抽選・繰上の結果は、当選された方にマイページの「お知らせ」で通知します。",
+    `結果は申込状況(${appUrl()}/my)からも確認できます。`,
   ];
   return lines.join("\n");
 }

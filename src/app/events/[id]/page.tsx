@@ -62,7 +62,7 @@ export default async function EventDetailPage({
           <strong>
             抽選・繰上の結果は<Link href="/my">申込状況ページ</Link>で確認できます。
           </strong>
-          当選された方にはメールでもお知らせします。
+          当選された方にはマイページの「お知らせ」で通知します。
         </div>
       )}
       {error && (

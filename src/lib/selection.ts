@@ -1,13 +1,14 @@
 // 参加者選定(F4)。
 // - 応募が定員以内: 全員当選
 // - 応募が定員超過: capacity 人を無作為に抽選で当選、残りは待機
-// 当選者にのみ通知を送る。待機者・落選者にはメールしない(申込状況画面で確認)。
+// 当選者にのみアプリ内通知(お知らせ)を出す。メールは送らない。
+// 待機者・落選者には通知しない(申込状況画面で確認)。
 // 選定は 1 イベント 1 回のみ。イベント行ロック + status 遷移で二重実行を防ぐ。
 import { randomInt } from "node:crypto";
 import { withTransaction } from "@/lib/db";
 import { buildWinMail } from "@/lib/mail";
 import { issueTicket } from "@/lib/tickets";
-import { recordNotification, deliverAll } from "@/lib/notify/notifications";
+import { recordNotification } from "@/lib/notify/notifications";
 
 export type SelectionResult =
   | { ok: true; winners: number; waitlisted: number; excluded: number }
@@ -19,14 +20,14 @@ export async function runSelection(eventId: string): Promise<SelectionResult> {
       eventId,
     ]);
     const event = evRes.rows[0];
-    if (!event) return { ok: false as const, error: "not_found" as const, ids: [] };
+    if (!event) return { ok: false as const, error: "not_found" as const };
     if (event.status === "selected")
-      return { ok: false as const, error: "already_selected" as const, ids: [] };
+      return { ok: false as const, error: "already_selected" as const };
 
     // 締切済み(自動・手動どちらでも)であることが選定の前提
     const expired = new Date(event.closes_at) <= new Date();
     if (event.status !== "closed" && !(event.status === "open" && expired)) {
-      return { ok: false as const, error: "not_closed" as const, ids: [] };
+      return { ok: false as const, error: "not_closed" as const };
     }
 
     const appsRes = await client.query(
@@ -81,7 +82,6 @@ export async function runSelection(eventId: string): Promise<SelectionResult> {
     const winners = pool.slice(0, event.capacity);
     const waitlisted = pool.slice(event.capacity);
 
-    const notificationIds: string[] = [];
     for (const app of winners) {
       await client.query("update applications set status = 'won' where id = $1", [app.id]);
       const ticket = await issueTicket(client, app.id);
@@ -91,16 +91,14 @@ export async function runSelection(eventId: string): Promise<SelectionResult> {
         ticketId: ticket.id,
         kind: "selection_won",
       });
-      notificationIds.push(
-        await recordNotification(client, {
-          memberId: app.member_id,
-          eventId,
-          kind: "selection_won",
-          email: app.email,
-          subject: mail.subject,
-          body: mail.body,
-        })
-      );
+      await recordNotification(client, {
+        memberId: app.member_id,
+        eventId,
+        kind: "selection_won",
+        email: app.email,
+        subject: mail.subject,
+        body: mail.body,
+      });
     }
     for (let i = 0; i < waitlisted.length; i++) {
       await client.query(
@@ -115,12 +113,8 @@ export async function runSelection(eventId: string): Promise<SelectionResult> {
       winners: winners.length,
       waitlisted: waitlisted.length,
       excluded: excluded.length,
-      ids: notificationIds,
     };
   });
 
-  // メール配送はコミット後。失敗しても DB はロールバックしない(通知履歴に failed が残る)
-  if (result.ok) await deliverAll(result.ids);
-  const { ids: _ids, ...rest } = result;
-  return rest as SelectionResult;
+  return result;
 }

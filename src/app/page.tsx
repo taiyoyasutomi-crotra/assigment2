@@ -9,6 +9,7 @@ import {
   type EventWithCount,
 } from "@/lib/events";
 import { listWinnerStats, type WinnerStats } from "@/lib/adminQueries";
+import { countUnreadNotifications } from "@/lib/notify/notifications";
 import { formatJst } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -169,9 +170,17 @@ export default async function HomePage() {
     );
   }
 
+  const unread = await countUnreadNotifications(member.id);
+
   return (
     <main className="container">
       <h1>イベント一覧</h1>
+      {unread > 0 && (
+        <div className="notice success">
+          新しいお知らせが{unread}件あります(抽選・繰上の結果)。{" "}
+          <Link href="/notifications">お知らせを確認する</Link>
+        </div>
+      )}
       {upcomingWins.length > 0 && (
         <>
           <h2 style={{ marginTop: 8 }}>参加予定のイベント</h2>

@@ -1,4 +1,5 @@
-// 当選メールの文面。テンプレートはここに集約し、レビュー可能にする。
+// 当選のお知らせ(アプリ内通知)の文面。テンプレートはここに集約し、レビュー可能にする。
+// メールでは送らない(2026-09-03 顧客判断)が、宛名・本文の構成は通知でも同じ。
 import { appUrl } from "@/lib/config";
 import { formatJst } from "@/lib/format";
 import type { EventRow } from "@/lib/events";
@@ -25,7 +26,7 @@ export function buildWinMail(input: {
     `日時: ${formatJst(event.starts_at)}`,
     `会場: ${event.venue}`,
     "",
-    "当日は、このメールに添付の入場QRコード、または下記のチケットページを受付でご提示ください。",
+    "当日は、下記のチケットページの入場QRコードを受付でご提示ください。",
     ticketUrl,
     "",
     `申込状況の確認: ${appUrl()}/my`,

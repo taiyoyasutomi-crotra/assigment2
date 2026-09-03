@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import "./globals.css";
 import { getSessionMember, roleHome } from "@/lib/auth/session";
+import { countUnreadNotifications } from "@/lib/notify/notifications";
 import { logoutAction } from "@/app/login/actions";
 
 export const metadata: Metadata = {
@@ -15,6 +16,9 @@ export default async function RootLayout({
   children: React.ReactNode;
 }) {
   const member = await getSessionMember();
+  // 会員向け: 未読のお知らせ数(当選・繰上のアプリ内通知)をナビにバッジ表示する
+  const unread =
+    member?.role === "member" ? await countUnreadNotifications(member.id) : 0;
   return (
     <html lang="ja">
       <body>
@@ -30,8 +34,14 @@ export default async function RootLayout({
               ) : (
                 <>
                   <Link href="/">ホーム</Link>
-                  {/* 会員: 申込状況とアカウント(運営者は申込不可のため出さない) */}
+                  {/* 会員: 申込状況・お知らせ・アカウント(運営者は申込不可のため出さない) */}
                   {member?.role === "member" && <Link href="/my">申込状況</Link>}
+                  {member?.role === "member" && (
+                    <Link href="/notifications">
+                      お知らせ
+                      {unread > 0 && <span className="nav-badge">{unread}</span>}
+                    </Link>
+                  )}
                   {member?.role === "member" && (
                     <Link href="/account">アカウント</Link>
                   )}

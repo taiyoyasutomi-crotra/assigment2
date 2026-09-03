@@ -56,6 +56,7 @@ export type AdminNotificationRow = {
   status: string;
   error: string | null;
   sent_at: Date | null;
+  read_at: Date | null;
   created_at: Date;
 };
 
@@ -64,7 +65,7 @@ export async function listNotificationsForEvent(
 ): Promise<AdminNotificationRow[]> {
   return query<AdminNotificationRow>(
     `select n.id, m.display_name, n.email, n.kind, n.subject,
-            n.status, n.error, n.sent_at, n.created_at
+            n.status, n.error, n.sent_at, n.read_at, n.created_at
      from notifications n
      join members m on m.id = n.member_id
      where n.event_id = $1
