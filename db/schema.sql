@@ -23,18 +23,17 @@ create table members (
 );
 
 create table events (
-  id                 uuid primary key default gen_random_uuid(),
-  title              text not null,
-  starts_at          timestamptz not null,
-  venue              text not null,
-  capacity           int not null check (capacity > 0),
-  application_limit  int not null,
-  closes_at          timestamptz not null,
-  status             text not null default 'open'
-                     check (status in ('draft', 'open', 'closed', 'selected', 'finished')),
-  created_at         timestamptz not null default now(),
-  -- application_limit = capacity → 先着 / application_limit > capacity → 抽選
-  check (application_limit >= capacity)
+  id          uuid primary key default gen_random_uuid(),
+  title       text not null,
+  starts_at   timestamptz not null,
+  venue       text not null,
+  description text,  -- イベント概要(任意)。申込ページ・告知文に表示
+  capacity    int not null check (capacity > 0),
+  closes_at   timestamptz not null,
+  status      text not null default 'open'
+              check (status in ('draft', 'open', 'closed', 'selected', 'finished')),
+  created_at  timestamptz not null default now()
+  -- 申込は締切(closes_at)まで無制限に受付。応募 > capacity なら選定時に抽選
 );
 
 create table applications (

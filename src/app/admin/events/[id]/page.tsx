@@ -5,7 +5,6 @@ import {
   getEvent,
   effectiveStatus,
   adminStatusLabel,
-  isLottery,
   isFinished,
 } from "@/lib/events";
 import { allowlistSummary, allowlistContains } from "@/lib/allowlist";
@@ -130,24 +129,21 @@ export default async function AdminEventDetailPage({
       <div className="card">
         <div className="stat-row">
           <div className="stat">
-            <div className="label">申込数 / 受付上限</div>
-            <div className="value">
-              {event.application_count} / {event.application_limit}
-            </div>
+            <div className="label">申込数</div>
+            <div className="value">{event.application_count}</div>
           </div>
           <div className="stat">
             <div className="label">定員(当選枠)</div>
             <div className="value">{event.capacity}</div>
-          </div>
-          <div className="stat">
-            <div className="label">方式</div>
-            <div className="value">{isLottery(event) ? "抽選" : "先着"}</div>
           </div>
         </div>
         <p className="muted">
           日時: {formatJst(event.starts_at)} / 会場: {event.venue} / 申込締切:{" "}
           {formatJst(event.closes_at)}
         </p>
+        {event.description && (
+          <p style={{ whiteSpace: "pre-wrap" }}>{event.description}</p>
+        )}
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           {canClose && (
             <form action={closeEventAction}>
@@ -165,7 +161,9 @@ export default async function AdminEventDetailPage({
               <input type="hidden" name="eventId" value={event.id} />
               <button type="submit">
                 選定を実行(
-                {isLottery(event) ? `抽選で${event.capacity}名` : "先着・全員当選"})
+                {event.application_count > event.capacity
+                  ? `抽選で${event.capacity}名`
+                  : "定員以内・全員当選"})
               </button>
             </form>
           )}
@@ -202,7 +200,7 @@ export default async function AdminEventDetailPage({
           <h2>イベント設定の変更</h2>
           <div className="card">
             <p className="muted">
-              定員(当選人数)と申込締切は選定前まで変更できます。
+              定員(当選人数)・申込締切・概要は選定前まで変更できます。
               締切を未来の日時に延ばすと、募集中に戻ります。
             </p>
             <form action={updateEventAction} className="stack">
@@ -214,7 +212,6 @@ export default async function AdminEventDetailPage({
                   name="capacity"
                   required
                   min={1}
-                  max={event.application_limit}
                   defaultValue={event.capacity}
                 />
               </label>
@@ -225,6 +222,15 @@ export default async function AdminEventDetailPage({
                   name="closesAt"
                   required
                   defaultValue={toJstLocalInput(event.closes_at)}
+                />
+              </label>
+              <label className="field">
+                概要(任意)
+                <textarea
+                  name="description"
+                  rows={4}
+                  defaultValue={event.description ?? ""}
+                  placeholder="イベントの内容・持ち物・注意事項など。会員向けの申込ページと告知文に表示されます"
                 />
               </label>
               <div>

@@ -1,6 +1,6 @@
 // 参加者選定(F4)。
-// - 先着(application_limit = capacity): 全員当選
-// - 抽選(application_limit > capacity): capacity 人を無作為に当選、残りは待機
+// - 応募が定員以内: 全員当選
+// - 応募が定員超過: capacity 人を無作為に抽選で当選、残りは待機
 // 当選者にのみ通知を送る。待機者・落選者にはメールしない(申込状況画面で確認)。
 // 選定は 1 イベント 1 回のみ。イベント行ロック + status 遷移で二重実行を防ぐ。
 import { randomInt } from "node:crypto";
@@ -69,10 +69,10 @@ export async function runSelection(eventId: string): Promise<SelectionResult> {
       ]);
     }
 
-    // 抽選: crypto の乱数で Fisher–Yates シャッフル
-    // 先着(limit = capacity)は自動締切により申込数 <= capacity のため全員当選になる
+    // 応募が定員を超えたときだけ抽選: crypto の乱数で Fisher–Yates シャッフル
+    // (定員以内なら並び順のまま全員当選になる)
     const pool = [...eligible];
-    if (event.application_limit > event.capacity) {
+    if (pool.length > event.capacity) {
       for (let i = pool.length - 1; i > 0; i--) {
         const j = randomInt(i + 1);
         [pool[i], pool[j]] = [pool[j], pool[i]];

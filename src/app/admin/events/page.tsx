@@ -3,7 +3,6 @@ import { requireAdmin } from "@/lib/auth/session";
 import {
   listEvents,
   adminStatusLabel,
-  isLottery,
   isFinished,
   type EventWithCount,
 } from "@/lib/events";
@@ -26,8 +25,8 @@ function EventTable({
           <tr>
             <th>イベント名</th>
             <th>日時</th>
-            <th>方式</th>
             <th>申込</th>
+            <th>定員</th>
             <th>状態</th>
           </tr>
         </thead>
@@ -38,10 +37,8 @@ function EventTable({
                 <Link href={`/admin/events/${e.id}`}>{e.title}</Link>
               </td>
               <td>{formatJst(e.starts_at)}</td>
-              <td>{isLottery(e) ? "抽選" : "先着"}</td>
-              <td>
-                {e.application_count} / {e.application_limit}
-              </td>
+              <td>{e.application_count}</td>
+              <td>{e.capacity}</td>
               <td>
                 {finished ? (
                   <span className="badge finished">✓ 完了</span>
@@ -93,8 +90,8 @@ export default async function AdminEventsPage({
       <h2>新規イベント作成</h2>
       <div className="card">
         <p className="muted">
-          作成すると会員向けの申込ページが即座に公開されます。申込上限=定員で先着順、
-          申込上限&gt;定員で抽選になります。
+          作成すると会員向けの申込ページが即座に公開されます。申込は締切日時まで受け付け、
+          応募が定員を超えた場合は選定時に抽選になります。
         </p>
         <form action={createEventAction} className="stack">
           <label className="field">
@@ -110,12 +107,16 @@ export default async function AdminEventsPage({
             <input type="text" name="venue" required placeholder="渋谷カルチャーホール" />
           </label>
           <label className="field">
-            定員(当選者数)
-            <input type="number" name="capacity" required min={1} defaultValue={10} />
+            概要(任意)
+            <textarea
+              name="description"
+              rows={4}
+              placeholder="イベントの内容・持ち物・注意事項など。会員向けの申込ページと告知文に表示されます"
+            />
           </label>
           <label className="field">
-            申込受付上限
-            <input type="number" name="applicationLimit" required min={1} defaultValue={20} />
+            定員(当選者数)
+            <input type="number" name="capacity" required min={1} defaultValue={10} />
           </label>
           <label className="field">
             申込締切日時

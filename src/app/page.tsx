@@ -28,7 +28,6 @@ function EventCard({
   href?: string;
 }) {
   const label = memberStatusLabel(e);
-  const remaining = Math.max(0, e.application_limit - e.application_count);
   return (
     <Link href={href ?? `/events/${e.id}`} className="event-card">
       <div className="title">
@@ -42,7 +41,7 @@ function EventCard({
       <div className="meta">
         {formatJst(e.starts_at)} / {e.venue}
         {!finished && effectiveStatus(e) === "open" && (
-          <> / 残り{remaining}枠(締切 {formatJst(e.closes_at)})</>
+          <> / 申込締切 {formatJst(e.closes_at)}</>
         )}
       </div>
     </Link>

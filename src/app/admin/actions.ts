@@ -21,8 +21,8 @@ export async function createEventAction(formData: FormData) {
     title: String(formData.get("title") || ""),
     startsAt: parseJstLocal(String(formData.get("startsAt") || "")),
     venue: String(formData.get("venue") || ""),
+    description: String(formData.get("description") || ""),
     capacity: Number(formData.get("capacity")),
-    applicationLimit: Number(formData.get("applicationLimit")),
     closesAt: parseJstLocal(String(formData.get("closesAt") || "")),
   });
   if ("error" in result) {
@@ -78,13 +78,14 @@ export async function deleteEventAction(formData: FormData) {
   redirect("/admin/events?deleted=1");
 }
 
-/** 定員(当選人数)・申込締切の変更 */
+/** 定員(当選人数)・申込締切・概要の変更 */
 export async function updateEventAction(formData: FormData) {
   await requireAdmin();
   const eventId = String(formData.get("eventId") || "");
   const result = await updateEventSettings(eventId, {
     capacity: Number(formData.get("capacity")),
     closesAt: parseJstLocal(String(formData.get("closesAt") || "")),
+    description: String(formData.get("description") || ""),
   });
   if (!result.ok) {
     redirect(`/admin/events/${eventId}?error=${encodeURIComponent(result.error)}`);

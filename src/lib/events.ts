@@ -5,8 +5,8 @@ export type EventRow = {
   title: string;
   starts_at: Date;
   venue: string;
+  description: string | null;
   capacity: number;
-  application_limit: number;
   closes_at: Date;
   status: "draft" | "open" | "closed" | "selected" | "finished";
 };
@@ -48,10 +48,6 @@ export function adminStatusLabel(e: EventRow): string {
   return labels[s];
 }
 
-export function isLottery(e: EventRow): boolean {
-  return e.application_limit > e.capacity; // TODO(hearing:Q3) 先着か抽選か
-}
-
 /** 完了したイベントか(開催日時を過ぎた、または明示的に終了)。一覧の仕分けに使う */
 export function isFinished(e: EventRow): boolean {
   if (e.status === "finished") return true;
@@ -79,10 +75,10 @@ export async function deleteEvent(id: string): Promise<void> {
 
 export type UpdateEventResult = { ok: true } | { ok: false; error: string };
 
-/** 募集中/締切中のイベントの定員(当選人数)と申込締切を変更する */
+/** 募集中/締切中のイベントの定員(当選人数)・申込締切・概要を変更する */
 export async function updateEventSettings(
   id: string,
-  input: { capacity: number; closesAt: Date }
+  input: { capacity: number; closesAt: Date; description: string }
 ): Promise<UpdateEventResult> {
   const e = await getEvent(id);
   if (!e) return { ok: false, error: "イベントが見つかりません" };
@@ -91,12 +87,6 @@ export async function updateEventSettings(
   }
   if (!Number.isInteger(input.capacity) || input.capacity <= 0) {
     return { ok: false, error: "定員は1以上の整数で入力してください" };
-  }
-  if (input.capacity > e.application_limit) {
-    return {
-      ok: false,
-      error: `定員は申込上限(${e.application_limit})以下にしてください`,
-    };
   }
   if (isNaN(input.closesAt.getTime())) {
     return { ok: false, error: "日時の形式が不正です" };
@@ -107,10 +97,10 @@ export async function updateEventSettings(
   // 締切を未来に延ばした場合は募集中に戻す(手動締切していても延長の意図を優先)
   const reopen = input.closesAt > new Date() && e.status === "closed";
   await query(
-    `update events set capacity = $2, closes_at = $3
+    `update events set capacity = $2, closes_at = $3, description = $4
        ${reopen ? ", status = 'open'" : ""}
      where id = $1`,
-    [id, input.capacity, input.closesAt]
+    [id, input.capacity, input.closesAt, input.description.trim() || null]
   );
   return { ok: true };
 }
@@ -146,8 +136,8 @@ export type CreateEventInput = {
   title: string;
   startsAt: Date;
   venue: string;
+  description: string;
   capacity: number;
-  applicationLimit: number;
   closesAt: Date;
 };
 
@@ -158,17 +148,15 @@ export async function createEvent(
   if (!input.venue.trim()) return { error: "会場を入力してください" };
   if (!Number.isInteger(input.capacity) || input.capacity <= 0)
     return { error: "定員は1以上の整数で入力してください" };
-  if (!Number.isInteger(input.applicationLimit) || input.applicationLimit < input.capacity)
-    return { error: "申込上限は定員以上で入力してください" };
   if (isNaN(input.startsAt.getTime()) || isNaN(input.closesAt.getTime()))
     return { error: "日時の形式が不正です" };
   if (input.closesAt >= input.startsAt)
     return { error: "申込締切はイベント開始より前にしてください" };
 
   const rows = await query<{ id: string }>(
-    `insert into events (title, starts_at, venue, capacity, application_limit, closes_at, status)
+    `insert into events (title, starts_at, venue, description, capacity, closes_at, status)
      values ($1, $2, $3, $4, $5, $6, 'open') returning id`,
-    [input.title.trim(), input.startsAt, input.venue.trim(), input.capacity, input.applicationLimit, input.closesAt]
+    [input.title.trim(), input.startsAt, input.venue.trim(), input.description.trim() || null, input.capacity, input.closesAt]
   );
   return { id: rows[0].id };
 }

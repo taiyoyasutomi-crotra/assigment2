@@ -56,12 +56,12 @@ try {
     memberIds.push(r.rows[0].id);
   }
 
-  // イベント1: 抽選型(capacity < application_limit)。申込8件入り。
-  // 上限10なので、あと2名が申し込むと自動締切になる(デモシナリオ#3)。
+  // イベント1: 定員5に対して申込8件入り → 選定時に抽選になる。
   const ev1 = await client.query(
-    `insert into events (title, starts_at, venue, capacity, application_limit, closes_at, status)
+    `insert into events (title, starts_at, venue, description, capacity, closes_at, status)
      values ('ファンミーティング Vol.5', now() + interval '14 days', '渋谷カルチャーホール',
-             5, 10, now() + interval '7 days', 'open')
+             'メンバーと直接お話しできる年に一度のファンミーティングです。トークショー・撮影会・お土産付き。',
+             5, now() + interval '7 days', 'open')
      returning id`
   );
   const event1 = ev1.rows[0].id;
@@ -77,11 +77,12 @@ try {
     );
   }
 
-  // イベント2: 先着型(capacity = application_limit)。手動締切デモ用(デモシナリオ#3)。
+  // イベント2: 定員10に対して申込3件 → 全員当選。手動締切デモ用(デモシナリオ#3)。
   const ev2 = await client.query(
-    `insert into events (title, starts_at, venue, capacity, application_limit, closes_at, status)
+    `insert into events (title, starts_at, venue, description, capacity, closes_at, status)
      values ('グッズ交換会', now() + interval '21 days', 'コミュニティスペース青山',
-             10, 10, now() + interval '10 days', 'open')
+             '会員同士でグッズを持ち寄って交換する交流イベントです。交換したいグッズをご持参ください。',
+             10, now() + interval '10 days', 'open')
      returning id`
   );
   const event2 = ev2.rows[0].id;
@@ -99,8 +100,8 @@ try {
   console.log("シード完了:");
   console.log("  運営者: 運営 太郎 (admin@example.com)");
   console.log("  会員: 10名");
-  console.log("  イベント: ファンミーティング Vol.5(抽選・申込8/10件)");
-  console.log("            グッズ交換会(先着・申込3/10件)");
+  console.log("  イベント: ファンミーティング Vol.5(定員5・申込8件 → 抽選)");
+  console.log("            グッズ交換会(定員10・申込3件 → 全員当選)");
 } catch (e) {
   await client.query("rollback");
   throw e;

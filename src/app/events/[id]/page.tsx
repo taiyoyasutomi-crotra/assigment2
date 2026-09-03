@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireMember } from "@/lib/auth/session";
-import { getEvent, effectiveStatus, isLottery, memberStatusLabel } from "@/lib/events";
+import { getEvent, effectiveStatus, memberStatusLabel } from "@/lib/events";
 import { getMyApplicationForEvent } from "@/lib/applications";
 import { formatJst } from "@/lib/format";
 import { applyAction } from "./actions";
@@ -34,7 +34,6 @@ export default async function EventDetailPage({
 
   const myApplication = await getMyApplicationForEvent(id, member.id);
   const open = effectiveStatus(event) === "open";
-  const remaining = Math.max(0, event.application_limit - event.application_count);
 
   return (
     <main className="container">
@@ -48,13 +47,13 @@ export default async function EventDetailPage({
           <br />
           会場: {event.venue}
           <br />
-          定員: {event.capacity}名
-          {isLottery(event) && <>(応募多数の場合は抽選)</>}
+          定員: {event.capacity}名(応募多数の場合は抽選)
           <br />
           申込締切: {formatJst(event.closes_at)}
-          <br />
-          残り枠: {open ? `${remaining}枠` : "受付終了"}
         </p>
+        {event.description && (
+          <p style={{ whiteSpace: "pre-wrap" }}>{event.description}</p>
+        )}
       </div>
 
       {applied && (

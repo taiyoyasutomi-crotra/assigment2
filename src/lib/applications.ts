@@ -1,11 +1,11 @@
-// 申込処理。F3(閾値による自動締切)の本体。
+// 申込処理。申込は締切日時(closes_at)まで無制限に受け付ける(受付上限は廃止)。
 // イベント行を FOR UPDATE でロックして直列化するため、
-// 同時に複数の申込が来ても application_limit を超えない。
+// 同時申込でも同一メールの重複エントリーが起きない。
 import { withTransaction } from "@/lib/db";
 import { query } from "@/lib/db";
 
 export type ApplyResult =
-  | { ok: true; closedNow: boolean }
+  | { ok: true }
   | {
       ok: false;
       error: "not_found" | "closed" | "already" | "invalid_email" | "duplicate_email";
@@ -53,42 +53,11 @@ export async function applyToEvent(
       return { ok: false as const, error: "duplicate_email" as const };
     }
 
-    // 上限判定は「カウント対象の申込」だけで行う。名簿を取込済みの場合、
-    // 名簿外の申込は選定対象外のためカウントしない(events.ts の COUNT_SQL と同じ規則)
-    const cntRes = await client.query(
-      `select count(*)::int as c from applications a
-       where a.event_id = $1 and a.status <> 'cancelled'
-         and (
-           not exists (select 1 from member_allowlist)
-           or exists (select 1 from member_allowlist al where al.email = lower(a.email))
-         )`,
-      [eventId]
-    );
-    const count: number = cntRes.rows[0].c;
-    if (count >= event.application_limit) {
-      await client.query("update events set status = 'closed' where id = $1", [eventId]);
-      return { ok: false as const, error: "closed" as const };
-    }
-
     await client.query(
       "insert into applications (event_id, member_id, email) values ($1, $2, $3)",
       [eventId, memberId, trimmed]
     );
-
-    // 上限到達の瞬間に自動締切(今回の申込がカウント対象の場合のみ数える)
-    const countedRes = await client.query(
-      `select (
-         not exists (select 1 from member_allowlist)
-         or exists (select 1 from member_allowlist where email = lower($1))
-       ) as counted`,
-      [trimmed]
-    );
-    const counted: boolean = countedRes.rows[0].counted;
-    const closedNow = counted && count + 1 >= event.application_limit;
-    if (closedNow) {
-      await client.query("update events set status = 'closed' where id = $1", [eventId]);
-    }
-    return { ok: true as const, closedNow };
+    return { ok: true as const };
   });
 }
 
