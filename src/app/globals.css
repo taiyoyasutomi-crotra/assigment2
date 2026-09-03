@@ -105,6 +105,79 @@ h2 {
   margin-bottom: 16px;
 }
 
+/* 管理画面: 左サイドバー+コンテンツの2カラム */
+.settings-layout {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+.settings-nav {
+  flex: 0 0 210px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 0;
+  position: sticky;
+  top: 16px;
+}
+.settings-nav .nav-group {
+  padding: 10px 16px 4px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+.settings-nav a {
+  display: block;
+  padding: 8px 16px 8px 28px;
+  color: var(--text);
+  border-right: 3px solid transparent;
+}
+.settings-nav a.top {
+  padding-left: 16px;
+  font-weight: 600;
+}
+.settings-nav a:hover {
+  text-decoration: none;
+  background: var(--bg);
+}
+.settings-nav a.active {
+  background: #eef2ff;
+  color: var(--primary);
+  font-weight: 600;
+  border-right-color: var(--primary);
+}
+.settings-content {
+  flex: 1;
+  min-width: 0;
+}
+.settings-content > h2:first-child {
+  margin-top: 0;
+}
+@media (max-width: 720px) {
+  .settings-layout {
+    flex-direction: column;
+  }
+  .settings-nav {
+    position: static;
+    flex: none;
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 8px;
+  }
+  .settings-nav .nav-group {
+    width: 100%;
+    padding: 4px 8px 0;
+  }
+  .settings-nav a,
+  .settings-nav a.top {
+    padding: 6px 12px;
+    border-radius: 6px;
+    border-right: none;
+  }
+}
+
 .event-list {
   display: grid;
   gap: 12px;

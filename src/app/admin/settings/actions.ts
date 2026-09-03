@@ -5,6 +5,9 @@ import { requireAdmin } from "@/lib/auth/session";
 import { parseRosterCsv, replaceAllowlist, clearAllowlist } from "@/lib/allowlist";
 import { addAdmin, removeAdmin } from "@/lib/admins";
 import { createCheckinStaff, deleteCheckinStaff } from "@/lib/checkinStaff";
+import { setPassword } from "@/lib/auth/fansCode";
+import { PASSWORD_MIN_LENGTH } from "@/lib/auth/password";
+import { query } from "@/lib/db";
 
 // 日本語サービスのCSVは Shift_JIS(cp932)が多いため、UTF-8 で読めない場合は
 // Shift_JIS として読み直す(メールは ASCII なのでどちらでも取れるが、表示名が化ける)
@@ -24,23 +27,23 @@ export async function importAllowlistAction(formData: FormData) {
   await requireAdmin();
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) {
-    redirect("/admin/settings?error=no_file");
+    redirect("/admin/settings?tab=roster&error=no_file");
   }
   if (file.size > 5 * 1024 * 1024) {
-    redirect("/admin/settings?error=too_large");
+    redirect("/admin/settings?tab=roster&error=too_large");
   }
   const rows = parseRosterCsv(decodeCsv(await (file as File).arrayBuffer()));
   if (rows.length === 0) {
-    redirect("/admin/settings?error=no_emails");
+    redirect("/admin/settings?tab=roster&error=no_emails");
   }
   const count = await replaceAllowlist(rows);
-  redirect(`/admin/settings?imported=${count}`);
+  redirect(`/admin/settings?tab=roster&imported=${count}`);
 }
 
 export async function clearAllowlistAction() {
   await requireAdmin();
   await clearAllowlist();
-  redirect("/admin/settings?cleared=1");
+  redirect("/admin/settings?tab=roster&cleared=1");
 }
 
 export async function addAdminAction(formData: FormData) {
@@ -49,15 +52,15 @@ export async function addAdminAction(formData: FormData) {
     displayName: String(formData.get("displayName") || ""),
     email: String(formData.get("email") || ""),
   });
-  if (!result.ok) redirect(`/admin/settings?error=${result.error}`);
-  redirect("/admin/settings?admin_added=1");
+  if (!result.ok) redirect(`/admin/settings?tab=admins&error=${result.error}`);
+  redirect("/admin/settings?tab=admins&admin_added=1");
 }
 
 export async function removeAdminAction(formData: FormData) {
   const me = await requireAdmin();
   const result = await removeAdmin(String(formData.get("memberId") || ""), me.id);
-  if (!result.ok) redirect(`/admin/settings?error=admin_${result.error}`);
-  redirect("/admin/settings?admin_removed=1");
+  if (!result.ok) redirect(`/admin/settings?tab=admins&error=admin_${result.error}`);
+  redirect("/admin/settings?tab=admins&admin_removed=1");
 }
 
 /** 受付アカウントの払い出し(当日スタッフ用。担当イベントの受付画面のみ利用可) */
@@ -70,29 +73,35 @@ export async function createCheckinStaffAction(formData: FormData) {
     password: String(formData.get("password") || ""),
   });
   if (!result.ok) {
-    redirect(`/admin/settings?error=${encodeURIComponent(result.error)}`);
+    redirect(`/admin/settings?tab=staff&error=${encodeURIComponent(result.error)}`);
   }
-  redirect("/admin/settings?staff_created=1");
+  redirect("/admin/settings?tab=staff&staff_created=1");
 }
 
 /** 受付アカウントの削除(イベント終了後の後片付け) */
 export async function deleteCheckinStaffAction(formData: FormData) {
   await requireAdmin();
   await deleteCheckinStaff(String(formData.get("staffId") || ""));
-  redirect("/admin/settings?staff_deleted=1");
+  redirect("/admin/settings?tab=staff&staff_deleted=1");
 }
 
-/** CSVの中身を貼り付けて取込(ブックマークレットが使えない場合の代替) */
-export async function pasteImportAction(formData: FormData) {
+/**
+ * 任意のユーザーのパスワード初期化(運営者のみ)。
+ * 運営者が新しいパスワードを決めて上書きし、本人に伝える運用。
+ */
+export async function resetUserPasswordAction(formData: FormData) {
   await requireAdmin();
-  const text = String(formData.get("csv") || "");
-  if (text.length > 5 * 1024 * 1024) {
-    redirect("/admin/settings?error=too_large");
+  const memberId = String(formData.get("memberId") || "");
+  const password = String(formData.get("password") || "");
+  if (!memberId) redirect("/admin/settings?tab=password&error=user_not_found");
+  if (password.length < PASSWORD_MIN_LENGTH) {
+    redirect("/admin/settings?tab=password&error=weak_password");
   }
-  const rows = parseRosterCsv(text);
-  if (rows.length === 0) {
-    redirect("/admin/settings?error=no_emails");
-  }
-  const count = await replaceAllowlist(rows);
-  redirect(`/admin/settings?imported=${count}`);
+  const rows = await query<{ id: string }>(
+    "select id from members where id = $1 and is_active",
+    [memberId]
+  );
+  if (!rows[0]) redirect("/admin/settings?tab=password&error=user_not_found");
+  await setPassword(memberId, password);
+  redirect("/admin/settings?tab=password&pw_reset=1");
 }

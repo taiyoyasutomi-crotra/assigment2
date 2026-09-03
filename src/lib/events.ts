@@ -120,10 +120,12 @@ const COUNT_SQL = `(
     )
 )`;
 
-export async function listEvents(): Promise<EventWithCount[]> {
+export async function listEvents(opts?: {
+  includeDrafts?: boolean;
+}): Promise<EventWithCount[]> {
   return query<EventWithCount>(
     `select e.*, ${COUNT_SQL} as application_count
-     from events e where e.status <> 'draft'
+     from events e ${opts?.includeDrafts ? "" : "where e.status <> 'draft'"}
      order by e.starts_at asc`
   );
 }

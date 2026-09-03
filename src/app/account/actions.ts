@@ -9,11 +9,14 @@ import { PASSWORD_MIN_LENGTH } from "@/lib/auth/password";
 // 会員はアカウントページ、運営者は管理ページ(from=admin)から使う
 export async function setPasswordAction(formData: FormData) {
   const member = await requireMember();
-  const back = formData.get("from") === "admin" ? "/admin/settings" : "/account";
+  const back =
+    formData.get("from") === "admin"
+      ? (q: string) => `/admin/settings?tab=password&${q}`
+      : (q: string) => `/account?${q}`;
   const password = String(formData.get("password") || "");
   if (password.length < PASSWORD_MIN_LENGTH) {
-    redirect(`${back}?error=weak_password`);
+    redirect(back("error=weak_password"));
   }
   await setPassword(member.id, password);
-  redirect(`${back}?password_updated=1`);
+  redirect(back("password_updated=1"));
 }

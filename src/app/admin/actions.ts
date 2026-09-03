@@ -26,7 +26,7 @@ export async function createEventAction(formData: FormData) {
     closesAt: parseJstLocal(String(formData.get("closesAt") || "")),
   });
   if ("error" in result) {
-    redirect(`/admin/events?error=${encodeURIComponent(result.error)}`);
+    redirect(`/admin/events?tab=new&error=${encodeURIComponent(result.error)}`);
   }
   // 作成した瞬間に会員向けの申込ページが生える(F1)
   redirect(`/admin/events/${result.id}?created=1`);

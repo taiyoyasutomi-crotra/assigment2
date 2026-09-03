@@ -13,6 +13,22 @@ export async function listAdmins(): Promise<AdminRow[]> {
   );
 }
 
+export type UserRow = {
+  id: string;
+  display_name: string;
+  email: string;
+  role: "member" | "admin" | "checkin";
+};
+
+/** 全ユーザー一覧(パスワード初期化の対象選択用)。運営者→受付→会員の順 */
+export async function listAllUsers(): Promise<UserRow[]> {
+  return query<UserRow>(
+    `select id, display_name, email, role from members where is_active
+     order by case role when 'admin' then 0 when 'checkin' then 1 else 2 end,
+              display_name`
+  );
+}
+
 export type AddAdminResult =
   | { ok: true }
   | { ok: false; error: "invalid_email" | "invalid_name" };

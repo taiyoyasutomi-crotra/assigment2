@@ -3,6 +3,7 @@ import { requireAdmin } from "@/lib/auth/session";
 import {
   listEvents,
   adminStatusLabel,
+  effectiveStatus,
   isFinished,
   type EventWithCount,
 } from "@/lib/events";
@@ -10,6 +11,8 @@ import { formatJst } from "@/lib/format";
 import { createEventAction } from "@/app/admin/actions";
 
 export const dynamic = "force-dynamic";
+
+type Tab = "draft" | "open" | "active" | "finished" | "new";
 
 function EventTable({
   events,
@@ -57,73 +60,136 @@ function EventTable({
 export default async function AdminEventsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; deleted?: string }>;
+  searchParams: Promise<{ tab?: string; error?: string; deleted?: string }>;
 }) {
   await requireAdmin();
-  const { error, deleted } = await searchParams;
-  const events = await listEvents();
+  const sp = await searchParams;
+  const tab: Tab = (["draft", "open", "active", "finished", "new"] as const).includes(
+    sp.tab as Tab
+  )
+    ? (sp.tab as Tab)
+    : "open";
+
+  const events = await listEvents({ includeDrafts: true });
+  // 仕分け: 作成中(下書き) / 募集中(締切前) / 開催中(締切後〜開催まで。当日受付を含む) / 終了
+  const drafts = events.filter((e) => e.status === "draft");
+  const open = events.filter(
+    (e) => !isFinished(e) && e.status !== "draft" && effectiveStatus(e) === "open"
+  );
+  const active = events.filter(
+    (e) => !isFinished(e) && e.status !== "draft" && effectiveStatus(e) !== "open"
+  );
+  const finished = events.filter(isFinished).reverse(); // 新しい順
+
+  const navItem = (t: Tab, label: string, count?: number, top = false) => (
+    <Link
+      href={`/admin/events?tab=${t}`}
+      className={`${top ? "top " : ""}${tab === t ? "active" : ""}`}
+    >
+      {label}
+      {count !== undefined && count > 0 && <span className="muted"> ({count})</span>}
+    </Link>
+  );
+
+  const emptyMessage: Record<Exclude<Tab, "new">, string> = {
+    draft: "作成中(下書き)のイベントはありません。",
+    open: "募集中のイベントはありません。「新規イベントの作成」から作成してください。",
+    active: "開催中(募集締切後)のイベントはありません。",
+    finished: "終了したイベントはありません。",
+  };
+
+  const tabEvents: Record<Exclude<Tab, "new">, EventWithCount[]> = {
+    draft: drafts,
+    open,
+    active,
+    finished,
+  };
+
   return (
     <main className="container">
       <h1>イベント</h1>
-      {error && <div className="notice error">{error}</div>}
-      {deleted && <div className="notice success">イベントを削除しました。</div>}
+      {sp.error && <div className="notice error">{sp.error}</div>}
+      {sp.deleted && <div className="notice success">イベントを削除しました。</div>}
 
-      <h2>進行中のイベント</h2>
-      {events.filter((e) => !isFinished(e)).length === 0 ? (
-        <p className="muted">
-          進行中のイベントはありません。下のフォームから作成してください。
-        </p>
-      ) : (
-        <EventTable events={events.filter((e) => !isFinished(e))} finished={false} />
-      )}
+      <div className="settings-layout">
+        <aside className="settings-nav">
+          <div className="nav-group">イベント</div>
+          {navItem("draft", "作成中", drafts.length)}
+          {navItem("open", "募集中", open.length)}
+          {navItem("active", "開催中", active.length)}
+          {navItem("finished", "終了", finished.length)}
+          <div className="nav-group">作成</div>
+          {navItem("new", "新規イベントの作成", undefined, true)}
+        </aside>
 
-      {events.some(isFinished) && (
-        <>
-          <h2>終了したイベント</h2>
-          <EventTable
-            events={events.filter(isFinished).reverse()}
-            finished={true}
-          />
-        </>
-      )}
-
-      <h2>新規イベント作成</h2>
-      <div className="card">
-        <p className="muted">
-          作成すると会員向けの申込ページが即座に公開されます。申込は締切日時まで受け付け、
-          応募が定員を超えた場合は選定時に抽選になります。
-        </p>
-        <form action={createEventAction} className="stack">
-          <label className="field">
-            イベント名
-            <input type="text" name="title" required placeholder="ファンミーティング Vol.6" />
-          </label>
-          <label className="field">
-            開催日時
-            <input type="datetime-local" name="startsAt" required />
-          </label>
-          <label className="field">
-            会場
-            <input type="text" name="venue" required placeholder="渋谷カルチャーホール" />
-          </label>
-          <label className="field">
-            概要(任意)
-            <textarea
-              name="description"
-              rows={4}
-              placeholder="イベントの内容・持ち物・注意事項など。会員向けの申込ページと告知文に表示されます"
-            />
-          </label>
-          <label className="field">
-            定員(当選者数)
-            <input type="number" name="capacity" required min={1} defaultValue={10} />
-          </label>
-          <label className="field">
-            申込締切日時
-            <input type="datetime-local" name="closesAt" required />
-          </label>
-          <button type="submit">イベントを作成する</button>
-        </form>
+        <section className="settings-content">
+          {tab === "new" ? (
+            <>
+              <h2>新規イベントの作成</h2>
+              <div className="card">
+                <p className="muted">
+                  作成すると会員向けの申込ページが即座に公開されます。申込は締切日時まで受け付け、
+                  応募が定員を超えた場合は選定時に抽選になります。
+                </p>
+                <form action={createEventAction} className="stack">
+                  <label className="field">
+                    イベント名
+                    <input
+                      type="text"
+                      name="title"
+                      required
+                      placeholder="ファンミーティング Vol.6"
+                    />
+                  </label>
+                  <label className="field">
+                    開催日時
+                    <input type="datetime-local" name="startsAt" required />
+                  </label>
+                  <label className="field">
+                    会場
+                    <input
+                      type="text"
+                      name="venue"
+                      required
+                      placeholder="渋谷カルチャーホール"
+                    />
+                  </label>
+                  <label className="field">
+                    概要(任意)
+                    <textarea
+                      name="description"
+                      rows={4}
+                      placeholder="イベントの内容・持ち物・注意事項など。会員向けの申込ページと告知文に表示されます"
+                    />
+                  </label>
+                  <label className="field">
+                    定員(当選者数)
+                    <input type="number" name="capacity" required min={1} defaultValue={10} />
+                  </label>
+                  <label className="field">
+                    申込締切日時
+                    <input type="datetime-local" name="closesAt" required />
+                  </label>
+                  <button type="submit">イベントを作成する</button>
+                </form>
+              </div>
+            </>
+          ) : (
+            <>
+              <h2>
+                {tab === "draft" && "作成中"}
+                {tab === "open" && "募集中"}
+                {tab === "active" && "開催中(募集締切後)"}
+                {tab === "finished" && "終了したイベント"}
+              </h2>
+              {tabEvents[tab].length === 0 ? (
+                <p className="muted">{emptyMessage[tab]}</p>
+              ) : (
+                <EventTable events={tabEvents[tab]} finished={tab === "finished"} />
+              )}
+            </>
+          )}
+        </section>
       </div>
     </main>
   );
