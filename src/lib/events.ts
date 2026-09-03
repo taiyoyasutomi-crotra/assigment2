@@ -59,9 +59,13 @@ export async function finishEvent(id: string): Promise<void> {
   await query("update events set status = 'finished' where id = $1", [id]);
 }
 
-/** イベントを削除する(申込・チケット・通知履歴も一緒に消える。取り消し不可) */
+/** イベントを削除する(申込・チケット・通知履歴・受付アカウントも一緒に消える。取り消し不可) */
 export async function deleteEvent(id: string): Promise<void> {
   await withTransaction(async (client) => {
+    await client.query(
+      "delete from members where role = 'checkin' and checkin_event_id = $1",
+      [id]
+    );
     await client.query("delete from notifications where event_id = $1", [id]);
     await client.query(
       `delete from tickets where application_id in

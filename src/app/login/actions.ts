@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { authProvider } from "@/lib/auth/provider";
 import { authMode, requestLoginLink, loginWithPassword } from "@/lib/auth/fansCode";
 import { hashPassword, PASSWORD_MIN_LENGTH } from "@/lib/auth/password";
-import { createSession, destroySession } from "@/lib/auth/session";
+import { createSession, destroySession, roleHome } from "@/lib/auth/session";
 
 // モック認証: 会員を選ぶだけでログインできる(AUTH_MODE=mock のときのみ)。
 // 本番運用は fans_code(参加コード+メール確認リンク)。 TODO(hearing:Q1)
@@ -14,7 +14,7 @@ export async function loginAction(formData: FormData) {
   const member = await authProvider.authenticate(memberId);
   if (!member) redirect("/login?error=1");
   await createSession(member.id);
-  redirect(member.role === "admin" ? "/admin/events" : "/");
+  redirect(roleHome(member));
 }
 
 // fans_code 認証: メールアドレス+パスワードでログイン
@@ -26,7 +26,7 @@ export async function passwordLoginAction(formData: FormData) {
   });
   if (!result.ok) redirect(`/login?error=${result.error}`);
   await createSession(result.member.id);
-  redirect(result.member.role === "admin" ? "/admin/events" : "/");
+  redirect(roleHome(result.member));
 }
 
 // fans_code 認証: 登録済みアドレスにパスワード再設定リンクをメール送信

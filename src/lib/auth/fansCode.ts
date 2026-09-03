@@ -137,7 +137,7 @@ export async function verifyLoginToken(token: string): Promise<VerifyResult> {
     if (!row) return { ok: false as const, error: "invalid_token" as const };
 
     const existing = await client.query(
-      `select id, display_name, email, role, is_active
+      `select id, display_name, email, role, is_active, checkin_event_id
        from members where lower(email) = $1 order by created_at limit 1`,
       [row.email]
     );
@@ -162,7 +162,7 @@ export async function verifyLoginToken(token: string): Promise<VerifyResult> {
       const created = await client.query(
         `insert into members (display_name, email, role, password_hash)
          values ($1, $2, 'member', $3)
-         returning id, display_name, email, role, is_active`,
+         returning id, display_name, email, role, is_active, checkin_event_id`,
         [displayName, row.email, row.password_hash ?? null]
       );
       member = created.rows[0];
@@ -182,7 +182,7 @@ export async function loginWithPassword(input: {
 }): Promise<PasswordLoginResult> {
   const email = input.email.trim().toLowerCase();
   const rows = await query<Member & { password_hash: string | null }>(
-    `select id, display_name, email, role, is_active, password_hash
+    `select id, display_name, email, role, is_active, checkin_event_id, password_hash
      from members where lower(email) = $1 and is_active
      order by created_at limit 1`,
     [email]
@@ -237,7 +237,7 @@ export async function resetPasswordWithToken(
       `update members set password_hash = $2
        where id = (select id from members where lower(email) = $1 and is_active
                    order by created_at limit 1)
-       returning id, display_name, email, role, is_active`,
+       returning id, display_name, email, role, is_active, checkin_event_id`,
       [row.email, hashPassword(password)]
     );
     if (!updated.rows[0]) return { ok: false as const, error: "invalid_token" as const };

@@ -51,10 +51,22 @@ export async function getSessionMember(): Promise<Member | null> {
   return authProvider.getMember(memberId);
 }
 
-/** ログイン必須ページ用。未ログインなら /login へ */
+/** ログイン後の行き先。受付担当は担当イベントの受付画面に直行させる */
+export function roleHome(member: Member): string {
+  if (member.role === "admin") return "/admin/events";
+  if (member.role === "checkin") {
+    return member.checkin_event_id
+      ? `/admin/events/${member.checkin_event_id}/checkin`
+      : "/login";
+  }
+  return "/";
+}
+
+/** ログイン必須ページ(会員向け)用。未ログインなら /login へ。受付担当は会員画面に入れない */
 export async function requireMember(): Promise<Member> {
   const member = await getSessionMember();
   if (!member) redirect("/login");
+  if (member.role === "checkin") redirect(roleHome(member));
   return member;
 }
 
@@ -62,6 +74,21 @@ export async function requireMember(): Promise<Member> {
 export async function requireAdmin(): Promise<Member> {
   const member = await getSessionMember();
   if (!member) redirect("/login");
-  if (member.role !== "admin") redirect("/");
+  if (member.role !== "admin") redirect(roleHome(member));
+  return member;
+}
+
+/** 受付画面(QR読取・参加者ボード)へのアクセス可否。API 用の真偽値判定 */
+export function canCheckin(member: Member | null, eventId: string): boolean {
+  if (!member) return false;
+  if (member.role === "admin") return true;
+  return member.role === "checkin" && member.checkin_event_id === eventId;
+}
+
+/** 受付画面用。運営者、またはこのイベント担当の受付アカウントのみ通す */
+export async function requireCheckinAccess(eventId: string): Promise<Member> {
+  const member = await getSessionMember();
+  if (!member) redirect("/login");
+  if (!canCheckin(member, eventId)) redirect(roleHome(member));
   return member;
 }

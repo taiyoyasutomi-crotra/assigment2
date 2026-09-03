@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireAdmin } from "@/lib/auth/session";
+import { requireCheckinAccess } from "@/lib/auth/session";
 import { getEvent } from "@/lib/events";
 import { CheckinClient } from "@/components/CheckinClient";
 
@@ -11,16 +11,19 @@ export default async function CheckinPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await requireAdmin();
   const { id } = await params;
+  // 運営者に加え、このイベント担当の受付アカウント(role=checkin)も利用できる
+  const member = await requireCheckinAccess(id);
   const event = await getEvent(id);
   if (!event) notFound();
 
   return (
     <main className="container" style={{ maxWidth: 520 }}>
-      <p>
-        <Link href={`/admin/events/${event.id}`}>← イベント管理へ</Link>
-      </p>
+      {member.role === "admin" && (
+        <p>
+          <Link href={`/admin/events/${event.id}`}>← イベント管理へ</Link>
+        </p>
+      )}
       <h1 style={{ textAlign: "center" }}>受付: {event.title}</h1>
       <CheckinClient eventId={event.id} />
     </main>

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { verifyLoginToken, authMode } from "@/lib/auth/fansCode";
-import { createSession } from "@/lib/auth/session";
+import { createSession, roleHome } from "@/lib/auth/session";
 import { appUrl } from "@/lib/config";
 
 // メール内の確認リンク。トークンを検証してログインセッションを張る
@@ -16,7 +16,5 @@ export async function GET(request: Request) {
     return NextResponse.redirect(`${appUrl()}/login?error=invalid_link`);
   }
   await createSession(result.member.id);
-  return NextResponse.redirect(
-    result.member.role === "admin" ? `${appUrl()}/admin/events` : appUrl()
-  );
+  return NextResponse.redirect(`${appUrl()}${roleHome(result.member)}`);
 }

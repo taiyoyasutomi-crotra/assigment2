@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { authProvider } from "@/lib/auth/provider";
 import { authMode } from "@/lib/auth/fansCode";
-import { getSessionMember } from "@/lib/auth/session";
+import { getSessionMember, roleHome } from "@/lib/auth/session";
 import {
   loginAction,
   passwordLoginAction,
@@ -36,8 +36,9 @@ export default async function LoginPage({
   const mode = authMode();
 
   // ログイン済みならログイン画面を出さず、そのまま中へ
+  // (担当イベントのない受付アカウントだけは行き先がないため、ログイン画面に留める)
   const current = await getSessionMember();
-  if (current) redirect(current.role === "admin" ? "/admin/events" : "/");
+  if (current && roleHome(current) !== "/login") redirect(roleHome(current));
 
   if (mode === "fans_code") {
     const view = tab === "signup" ? "signup" : tab === "link" ? "link" : "login";
@@ -160,7 +161,9 @@ export default async function LoginPage({
             {candidates.map((m) => (
               <tr key={m.id}>
                 <td>{m.display_name}</td>
-                <td>{m.role === "admin" ? "運営者" : "会員"}</td>
+                <td>
+                  {m.role === "admin" ? "運営者" : m.role === "checkin" ? "受付" : "会員"}
+                </td>
                 <td>
                   <form action={loginAction}>
                     <input type="hidden" name="memberId" value={m.id} />

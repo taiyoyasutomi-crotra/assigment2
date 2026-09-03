@@ -15,10 +15,13 @@ create table members (
   display_name  text not null,
   email         text not null,
   -- モック差分: 運営者ロール。本実装ではコミュニティ基盤の権限に差し替え
+  -- checkin = 受付担当(当日スタッフ)。担当イベントの受付画面のみ利用可
   -- TODO(hearing:Q1)
-  role          text not null default 'member' check (role in ('member', 'admin')),
+  role          text not null default 'member' check (role in ('member', 'admin', 'checkin')),
   is_active     boolean not null default true,  -- TODO(hearing:Q2) 会員資格の検証方法
   password_hash text,  -- scrypt。null = 未設定(メールリンクでのみログイン可)
+  -- role=checkin の担当イベント(FK は events 作成後に付与)
+  checkin_event_id uuid,
   created_at    timestamptz not null default now()
 );
 
@@ -35,6 +38,10 @@ create table events (
   created_at  timestamptz not null default now()
   -- 申込は締切(closes_at)まで無制限に受付。応募 > capacity なら選定時に抽選
 );
+
+alter table members
+  add constraint fk_members_checkin_event
+  foreign key (checkin_event_id) references events(id);
 
 create table applications (
   id             uuid primary key default gen_random_uuid(),

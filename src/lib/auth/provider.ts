@@ -9,8 +9,11 @@ export type Member = {
   id: string;
   display_name: string;
   email: string;
-  role: "member" | "admin";
+  // checkin = 受付担当(当日スタッフ)。担当イベントの受付画面のみ利用できる弱い権限
+  role: "member" | "admin" | "checkin";
   is_active: boolean;
+  /** role=checkin のときの担当イベント。それ以外は null */
+  checkin_event_id: string | null;
 };
 
 export interface AuthProvider {
@@ -21,22 +24,24 @@ export interface AuthProvider {
   getMember(memberId: string): Promise<Member | null>;
 }
 
+const MEMBER_COLUMNS = "id, display_name, email, role, is_active, checkin_event_id";
+
 const mockProvider: AuthProvider = {
   async listLoginCandidates() {
     return query<Member>(
-      "select id, display_name, email, role, is_active from members where is_active order by role desc, display_name"
+      `select ${MEMBER_COLUMNS} from members where is_active order by role desc, display_name`
     );
   },
   async authenticate(memberId: string) {
     const rows = await query<Member>(
-      "select id, display_name, email, role, is_active from members where id = $1 and is_active",
+      `select ${MEMBER_COLUMNS} from members where id = $1 and is_active`,
       [memberId]
     );
     return rows[0] ?? null;
   },
   async getMember(memberId: string) {
     const rows = await query<Member>(
-      "select id, display_name, email, role, is_active from members where id = $1 and is_active",
+      `select ${MEMBER_COLUMNS} from members where id = $1 and is_active`,
       [memberId]
     );
     return rows[0] ?? null;

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import "./globals.css";
-import { getSessionMember } from "@/lib/auth/session";
+import { getSessionMember, roleHome } from "@/lib/auth/session";
 import { logoutAction } from "@/app/login/actions";
 
 export const metadata: Metadata = {
@@ -24,15 +24,26 @@ export default async function RootLayout({
               ファンミ受付
             </Link>
             <nav>
-              <Link href="/">ホーム</Link>
-              {/* 会員: 申込状況とアカウント(運営者は申込不可のため出さない) */}
-              {member && member.role !== "admin" && <Link href="/my">申込状況</Link>}
-              {member && member.role !== "admin" && (
-                <Link href="/account">アカウント</Link>
+              {/* 受付担当: 担当イベントの受付画面のみ(他の画面には入れない) */}
+              {member?.role === "checkin" ? (
+                <Link href={roleHome(member)}>受付画面</Link>
+              ) : (
+                <>
+                  <Link href="/">ホーム</Link>
+                  {/* 会員: 申込状況とアカウント(運営者は申込不可のため出さない) */}
+                  {member?.role === "member" && <Link href="/my">申込状況</Link>}
+                  {member?.role === "member" && (
+                    <Link href="/account">アカウント</Link>
+                  )}
+                  {/* 運営者: イベント(一覧・作成)と管理(運営者・名簿・自分のパスワード) */}
+                  {member?.role === "admin" && (
+                    <Link href="/admin/events">イベント</Link>
+                  )}
+                  {member?.role === "admin" && (
+                    <Link href="/admin/settings">管理</Link>
+                  )}
+                </>
               )}
-              {/* 運営者: イベント(一覧・作成)と管理(運営者・名簿・自分のパスワード) */}
-              {member?.role === "admin" && <Link href="/admin/events">イベント</Link>}
-              {member?.role === "admin" && <Link href="/admin/settings">管理</Link>}
             </nav>
             <div className="user">
               {member ? (
