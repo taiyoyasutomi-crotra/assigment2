@@ -21,6 +21,22 @@ export async function listCheckinStaff(eventId: string): Promise<CheckinStaffRow
   );
 }
 
+export type CheckinStaffWithEvent = CheckinStaffRow & {
+  event_id: string;
+  event_title: string;
+};
+
+/** 全イベント横断の受付アカウント一覧(管理画面のユーザー管理用) */
+export async function listAllCheckinStaff(): Promise<CheckinStaffWithEvent[]> {
+  return query<CheckinStaffWithEvent>(
+    `select m.id, m.display_name, m.email, m.created_at,
+            e.id as event_id, e.title as event_title
+     from members m join events e on e.id = m.checkin_event_id
+     where m.role = 'checkin'
+     order by e.starts_at, m.created_at`
+  );
+}
+
 export type CreateStaffResult = { ok: true } | { ok: false; error: string };
 
 export async function createCheckinStaff(input: {

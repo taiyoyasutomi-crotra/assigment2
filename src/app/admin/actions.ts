@@ -12,7 +12,6 @@ import {
 } from "@/lib/events";
 import { parseJstLocal } from "@/lib/format";
 import { approveApplicationEmail, deleteApplication } from "@/lib/applications";
-import { createCheckinStaff, deleteCheckinStaff } from "@/lib/checkinStaff";
 import { runSelection } from "@/lib/selection";
 import { previewCancel, executeCancel, type CancelPreview, type CancelResult } from "@/lib/cancel";
 
@@ -110,31 +109,6 @@ export async function deleteApplicationAction(formData: FormData) {
   const eventId = String(formData.get("eventId") || "");
   await deleteApplication(applicationId);
   redirect(`/admin/events/${eventId}?app_deleted=1`);
-}
-
-/** 受付アカウントの払い出し(当日スタッフ用。担当イベントの受付画面のみ利用可) */
-export async function createCheckinStaffAction(formData: FormData) {
-  await requireAdmin();
-  const eventId = String(formData.get("eventId") || "");
-  const result = await createCheckinStaff({
-    eventId,
-    displayName: String(formData.get("displayName") || ""),
-    email: String(formData.get("email") || ""),
-    password: String(formData.get("password") || ""),
-  });
-  if (!result.ok) {
-    redirect(`/admin/events/${eventId}?error=${encodeURIComponent(result.error)}`);
-  }
-  redirect(`/admin/events/${eventId}?staff_created=1`);
-}
-
-/** 受付アカウントの削除(イベント終了後の後片付け) */
-export async function deleteCheckinStaffAction(formData: FormData) {
-  await requireAdmin();
-  const eventId = String(formData.get("eventId") || "");
-  const staffId = String(formData.get("staffId") || "");
-  await deleteCheckinStaff(staffId);
-  redirect(`/admin/events/${eventId}?staff_deleted=1`);
 }
 
 /** キャンセル確認ダイアログ用(クライアントから呼ぶ) */

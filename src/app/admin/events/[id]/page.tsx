@@ -8,7 +8,6 @@ import {
   isFinished,
 } from "@/lib/events";
 import { allowlistSummary, allowlistContains } from "@/lib/allowlist";
-import { listCheckinStaff } from "@/lib/checkinStaff";
 import { listApplicationsForEvent, listNotificationsForEvent } from "@/lib/adminQueries";
 import { buildAnnouncement } from "@/lib/announce";
 import { formatJst, toJstLocalInput } from "@/lib/format";
@@ -21,8 +20,6 @@ import {
   updateEventAction,
   approveApplicationAction,
   deleteApplicationAction,
-  createCheckinStaffAction,
-  deleteCheckinStaffAction,
 } from "@/app/admin/actions";
 import { CopyButton } from "@/components/CopyButton";
 import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
@@ -53,8 +50,6 @@ export default async function AdminEventDetailPage({
     updated?: string;
     approved?: string;
     app_deleted?: string;
-    staff_created?: string;
-    staff_deleted?: string;
     error?: string;
   }>;
 }) {
@@ -66,7 +61,6 @@ export default async function AdminEventDetailPage({
   if (!event) notFound();
   const applications = await listApplicationsForEvent(id);
   const notifications = await listNotificationsForEvent(id);
-  const checkinStaff = await listCheckinStaff(id);
 
   // 申込チェック(GUI表示用): 名簿外のアドレスと、同一アドレスの重複申込を可視化する。
   // キャンセル済みは対象外。名簿が未取込のときは名簿照合をしない(rosterSet=null)
@@ -123,15 +117,6 @@ export default async function AdminEventDetailPage({
         </div>
       )}
       {sp.app_deleted && <div className="notice success">申込を削除しました。</div>}
-      {sp.staff_created && (
-        <div className="notice success">
-          受付アカウントを作成しました。メールアドレスとパスワードを担当者に伝えてください
-          (ログインはこのシステムのログイン画面から)。
-        </div>
-      )}
-      {sp.staff_deleted && (
-        <div className="notice success">受付アカウントを削除しました。</div>
-      )}
       {sp.selected && (
         <div className="notice success">
           選定を実行しました(当選 {sp.selected} 名 / 待機 {sp.waitlisted ?? 0} 名
@@ -255,78 +240,6 @@ export default async function AdminEventDetailPage({
           </div>
         </>
       )}
-
-      <h2>受付アカウント(当日スタッフ用)</h2>
-      <div className="card">
-        <p className="muted">
-          当日の受付を担当するスタッフ用のアカウントです。ログインすると
-          このイベントの受付画面(QR読取・参加者ボード)だけが使えます
-          (イベントの作成・選定・名簿などの管理機能には入れません)。
-          メールアドレスとパスワードを決めて払い出し、イベントが終わったら削除してください。
-        </p>
-        {checkinStaff.length > 0 && (
-          <div className="table-scroll">
-            <table className="data">
-              <thead>
-                <tr>
-                  <th>表示名</th>
-                  <th>ログイン用メールアドレス</th>
-                  <th>作成日時</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {checkinStaff.map((s) => (
-                  <tr key={s.id}>
-                    <td>{s.display_name}</td>
-                    <td>{s.email}</td>
-                    <td>{formatJst(s.created_at)}</td>
-                    <td>
-                      <form action={deleteCheckinStaffAction}>
-                        <input type="hidden" name="eventId" value={event.id} />
-                        <input type="hidden" name="staffId" value={s.id} />
-                        <ConfirmSubmitButton
-                          className="danger small"
-                          message={`受付アカウント「${s.display_name}」(${s.email})を削除します。以後このアカウントではログインできなくなります。よろしいですか?`}
-                        >
-                          削除
-                        </ConfirmSubmitButton>
-                      </form>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-        {!finished && (
-          <form action={createCheckinStaffAction} className="stack">
-            <input type="hidden" name="eventId" value={event.id} />
-            <label className="field">
-              表示名(任意)
-              <input type="text" name="displayName" placeholder="受付スタッフ" />
-            </label>
-            <label className="field">
-              ログイン用メールアドレス
-              <input type="email" name="email" required placeholder="staff@example.com" />
-            </label>
-            <label className="field">
-              パスワード(8文字以上。担当者に伝えるため画面に表示されます)
-              <input
-                type="text"
-                name="password"
-                required
-                minLength={8}
-                autoComplete="off"
-                placeholder="担当者に渡すパスワード"
-              />
-            </label>
-            <div>
-              <button type="submit">受付アカウントを作成する</button>
-            </div>
-          </form>
-        )}
-      </div>
 
       <h2>告知文</h2>
       <div className="card">

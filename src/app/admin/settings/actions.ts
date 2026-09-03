@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth/session";
 import { parseRosterCsv, replaceAllowlist, clearAllowlist } from "@/lib/allowlist";
 import { addAdmin, removeAdmin } from "@/lib/admins";
+import { createCheckinStaff, deleteCheckinStaff } from "@/lib/checkinStaff";
 
 // 日本語サービスのCSVは Shift_JIS(cp932)が多いため、UTF-8 で読めない場合は
 // Shift_JIS として読み直す(メールは ASCII なのでどちらでも取れるが、表示名が化ける)
@@ -57,6 +58,28 @@ export async function removeAdminAction(formData: FormData) {
   const result = await removeAdmin(String(formData.get("memberId") || ""), me.id);
   if (!result.ok) redirect(`/admin/settings?error=admin_${result.error}`);
   redirect("/admin/settings?admin_removed=1");
+}
+
+/** 受付アカウントの払い出し(当日スタッフ用。担当イベントの受付画面のみ利用可) */
+export async function createCheckinStaffAction(formData: FormData) {
+  await requireAdmin();
+  const result = await createCheckinStaff({
+    eventId: String(formData.get("eventId") || ""),
+    displayName: String(formData.get("displayName") || ""),
+    email: String(formData.get("email") || ""),
+    password: String(formData.get("password") || ""),
+  });
+  if (!result.ok) {
+    redirect(`/admin/settings?error=${encodeURIComponent(result.error)}`);
+  }
+  redirect("/admin/settings?staff_created=1");
+}
+
+/** 受付アカウントの削除(イベント終了後の後片付け) */
+export async function deleteCheckinStaffAction(formData: FormData) {
+  await requireAdmin();
+  await deleteCheckinStaff(String(formData.get("staffId") || ""));
+  redirect("/admin/settings?staff_deleted=1");
 }
 
 /** CSVの中身を貼り付けて取込(ブックマークレットが使えない場合の代替) */
