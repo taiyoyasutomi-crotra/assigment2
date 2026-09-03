@@ -138,21 +138,25 @@ h2 {
   position: sticky;
   top: 16px;
 }
+/* 見出し(大タブ)は大きく濃く、中の項目は一段小さく薄く */
 .settings-nav .nav-group {
-  padding: 10px 16px 4px;
-  font-size: 0.8rem;
+  padding: 12px 16px 4px;
+  font-size: 1rem;
   font-weight: 700;
-  color: var(--muted);
+  color: var(--text);
 }
 .settings-nav a {
   display: block;
-  padding: 8px 16px 8px 28px;
-  color: var(--text);
+  padding: 7px 16px 7px 28px;
+  font-size: 0.9rem;
+  color: #4b5563;
   border-right: 3px solid transparent;
 }
 .settings-nav a.top {
   padding-left: 16px;
-  font-weight: 600;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
 }
 .settings-nav a:hover {
   text-decoration: none;
