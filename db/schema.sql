@@ -102,6 +102,10 @@ create table login_tokens (
 );
 create index idx_login_tokens_email on login_tokens(email);
 
+-- 同じメールアドレスのアカウントは作成不可(大文字小文字は同一視)。
+-- アプリ側の重複チェックに加えてDBレベルでも保証する
+create unique index uq_members_email_lower on members (lower(email));
+
 -- 運営者が管理画面から変更できる設定(参加コード等)
 create table app_settings (
   key        text primary key,

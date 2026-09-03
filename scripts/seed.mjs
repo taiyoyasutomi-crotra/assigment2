@@ -30,10 +30,11 @@ try {
   );
 
   // 会員10名。
-  // SEED_DEMO_EMAIL を設定すると全会員のメールがそのアドレスになる。
-  // Resend の無料枠(onboarding@resend.dev 送信)はアカウントオーナー宛にしか
-  // 送れないため、実メールを見せるデモでは SEED_DEMO_EMAIL=<オーナーのアドレス> で
-  // シードする。未設定ならダミー(example.com)。
+  // SEED_DEMO_EMAIL を設定すると、1人目はそのアドレス、2人目以降は
+  // プラス別名(taiyou.stock+m2@gmail.com 等)になる。Gmail等では同じ受信箱に
+  // 届くため実メールのデモが可能で、かつメールアドレスは重複しない
+  // (members にはメールの一意制約があるため、同一アドレスの相乗りは不可)。
+  // 未設定ならダミー(example.com)。
   const demoEmail = process.env.SEED_DEMO_EMAIL;
   const memberNames = [
     ["佐藤 花子", "hanako.sato@example.com"],
@@ -46,7 +47,10 @@ try {
     ["中村 翔太", "shota.nakamura@example.com"],
     ["小林 愛", "ai.kobayashi@example.com"],
     ["加藤 拓海", "takumi.kato@example.com"],
-  ].map(([name, email]) => [name, demoEmail || email]);
+  ].map(([name, email], i) => [
+    name,
+    demoEmail ? (i === 0 ? demoEmail : demoEmail.replace("@", `+m${i + 1}@`)) : email,
+  ]);
   const memberIds = [];
   for (const [name, email] of memberNames) {
     const r = await client.query(
