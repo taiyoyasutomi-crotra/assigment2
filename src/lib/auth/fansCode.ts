@@ -20,11 +20,13 @@ const TOKEN_TTL_MINUTES = 15;
 
 // メールアドレスから会員を1人に特定するときの優先順位。
 // デモデータ等で同じアドレスを複数アカウントが共有している場合、
-// 運営者 > 受付 > 会員、同役割なら作成が古い順で解決する
+// 運営者 > 受付 > 会員、同役割なら作成が古い順、最後は id で解決する。
 // (単純な created_at 順だと、運営者がパスワードを再設定しても
-//  同アドレスの古い会員行が対象になり「変更が効かない」事故が起きる)。
+//  同アドレスの古い会員行が対象になり「変更が効かない」事故が起きる。
+//  さらに同一シードの会員は created_at まで同一のため、id のタイブレーカーが
+//  ないと「設定した行」と「ログインで照合する行」が毎回変わってしまう)
 const CANONICAL_MEMBER_ORDER =
-  "order by case role when 'admin' then 0 when 'checkin' then 1 else 2 end, created_at";
+  "order by case role when 'admin' then 0 when 'checkin' then 1 else 2 end, created_at, id";
 
 export function authMode(): "mock" | "fans_code" {
   return process.env.AUTH_MODE === "fans_code" ? "fans_code" : "mock";
