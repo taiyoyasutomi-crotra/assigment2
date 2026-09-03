@@ -11,7 +11,7 @@ export async function setPasswordAction(formData: FormData) {
   const member = await requireMember();
   const back =
     formData.get("from") === "admin"
-      ? (q: string) => `/admin/settings?tab=password&${q}`
+      ? (q: string) => `/admin/settings?tab=pw_admin&${q}`
       : (q: string) => `/account?${q}`;
   const password = String(formData.get("password") || "");
   if (password.length < PASSWORD_MIN_LENGTH) {

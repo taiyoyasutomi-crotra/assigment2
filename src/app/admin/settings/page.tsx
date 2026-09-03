@@ -49,7 +49,7 @@ function fansPostText(): string {
   ].join("\n");
 }
 
-type Tab = "admins" | "staff" | "roster" | "password";
+type Tab = "admins" | "staff" | "roster" | "pw_admin" | "pw_checkin" | "pw_member";
 
 const roleLabels: Record<string, string> = {
   admin: "運営者",
@@ -76,9 +76,9 @@ export default async function AdminSettingsPage({
   const me = await requireAdmin();
   const sp = await searchParams;
   const mode = authMode();
-  const tab: Tab = (["admins", "staff", "roster", "password"] as const).includes(
-    sp.tab as Tab
-  )
+  const tab: Tab = (
+    ["admins", "staff", "roster", "pw_admin", "pw_checkin", "pw_member"] as const
+  ).includes(sp.tab as Tab)
     ? (sp.tab as Tab)
     : "admins";
 
@@ -143,7 +143,10 @@ export default async function AdminSettingsPage({
           {navItem("admins", "運営ユーザー")}
           {navItem("staff", "受付ユーザー")}
           {navItem("roster", "会員ユーザー(CSV)")}
-          {navItem("password", "パスワード", true)}
+          <div className="nav-group">パスワード管理</div>
+          {navItem("pw_admin", "運営ユーザーパスワード")}
+          {navItem("pw_checkin", "受付ユーザーパスワード")}
+          {navItem("pw_member", "会員ユーザーパスワード")}
         </aside>
 
         <section className="settings-content">
@@ -400,74 +403,90 @@ export default async function AdminSettingsPage({
             </>
           )}
 
-          {tab === "password" && (
-            <>
-              <h2>自分のパスワード</h2>
-              <div className="card">
-                <p className="muted">
-                  ログイン({me.email})に使うパスワードを設定・変更できます。
-                  {mode !== "fans_code" && (
+          {(tab === "pw_admin" || tab === "pw_checkin" || tab === "pw_member") &&
+            (() => {
+              const role =
+                tab === "pw_admin" ? "admin" : tab === "pw_checkin" ? "checkin" : "member";
+              const users = allUsers.filter((u) => u.role === role);
+              return (
+                <>
+                  {tab === "pw_admin" && (
                     <>
-                      (現在はデモ用の選択式ログインのため、パスワードは本番切替後に使われます)
+                      <h2>自分のパスワード</h2>
+                      <div className="card">
+                        <p className="muted">
+                          ログイン({me.email})に使うパスワードを設定・変更できます。
+                          {mode !== "fans_code" && (
+                            <>
+                              (現在はデモ用の選択式ログインのため、パスワードは本番切替後に使われます)
+                            </>
+                          )}
+                        </p>
+                        <form action={setPasswordAction} className="stack">
+                          <input type="hidden" name="from" value="admin" />
+                          <label className="field">
+                            新しいパスワード(8文字以上)
+                            <input
+                              type="password"
+                              name="password"
+                              required
+                              minLength={8}
+                              autoComplete="new-password"
+                            />
+                          </label>
+                          <div>
+                            <button type="submit">パスワードを変更する</button>
+                          </div>
+                        </form>
+                      </div>
                     </>
                   )}
-                </p>
-                <form action={setPasswordAction} className="stack">
-                  <input type="hidden" name="from" value="admin" />
-                  <label className="field">
-                    新しいパスワード(8文字以上)
-                    <input
-                      type="password"
-                      name="password"
-                      required
-                      minLength={8}
-                      autoComplete="new-password"
-                    />
-                  </label>
-                  <div>
-                    <button type="submit">パスワードを変更する</button>
-                  </div>
-                </form>
-              </div>
 
-              <h2>ユーザーのパスワード初期化</h2>
-              <div className="card">
-                <p className="muted">
-                  任意のユーザーのパスワードを、運営者が決めた新しいパスワードで上書きします
-                  (パスワードを忘れた等の問い合わせ対応用)。初期化したら新しいパスワードを
-                  本人に伝えてください。以前のパスワードは使えなくなります。
-                </p>
-                <form action={resetUserPasswordAction} className="stack">
-                  <label className="field">
-                    対象ユーザー
-                    <select name="memberId" required>
-                      {allUsers.map((u) => (
-                        <option key={u.id} value={u.id}>
-                          [{roleLabels[u.role] ?? u.role}] {u.display_name}({u.email})
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="field">
-                    新しいパスワード(8文字以上。本人に伝えるため画面に表示されます)
-                    <input
-                      type="text"
-                      name="password"
-                      required
-                      minLength={8}
-                      autoComplete="off"
-                      placeholder="本人に渡す新しいパスワード"
-                    />
-                  </label>
-                  <div>
-                    <ConfirmSubmitButton message="選択したユーザーのパスワードを初期化(上書き)します。以前のパスワードは使えなくなります。よろしいですか?">
-                      パスワードを初期化する
-                    </ConfirmSubmitButton>
+                  <h2>{roleLabels[role]}ユーザーのパスワード初期化</h2>
+                  <div className="card">
+                    <p className="muted">
+                      {roleLabels[role]}ユーザーのパスワードを、運営者が決めた新しいパスワードで
+                      上書きします(パスワードを忘れた等の問い合わせ対応用)。
+                      初期化したら新しいパスワードを本人に伝えてください。
+                      以前のパスワードは使えなくなります。
+                    </p>
+                    {users.length === 0 ? (
+                      <p className="muted">対象のユーザーがいません。</p>
+                    ) : (
+                      <form action={resetUserPasswordAction} className="stack">
+                        <input type="hidden" name="tab" value={tab} />
+                        <label className="field">
+                          対象ユーザー
+                          <select name="memberId" required>
+                            {users.map((u) => (
+                              <option key={u.id} value={u.id}>
+                                {u.display_name}({u.email})
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="field">
+                          新しいパスワード(8文字以上。本人に伝えるため画面に表示されます)
+                          <input
+                            type="text"
+                            name="password"
+                            required
+                            minLength={8}
+                            autoComplete="off"
+                            placeholder="本人に渡す新しいパスワード"
+                          />
+                        </label>
+                        <div>
+                          <ConfirmSubmitButton message="選択したユーザーのパスワードを初期化(上書き)します。以前のパスワードは使えなくなります。よろしいですか?">
+                            パスワードを初期化する
+                          </ConfirmSubmitButton>
+                        </div>
+                      </form>
+                    )}
                   </div>
-                </form>
-              </div>
-            </>
-          )}
+                </>
+              );
+            })()}
         </section>
       </div>
     </main>

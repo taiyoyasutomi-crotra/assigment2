@@ -130,7 +130,8 @@ export default async function AdminEventsPage({
           {navItem("open", "募集中", open.length)}
           {navItem("active", "開催中", active.length)}
           {navItem("finished", "終了", finished.length)}
-          {navItem("new", "新規イベントの作成", undefined, true)}
+          <div className="nav-group">新規イベント</div>
+          {navItem("new", "作成")}
         </aside>
 
         <section className="settings-content">

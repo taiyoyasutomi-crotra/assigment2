@@ -91,17 +91,22 @@ export async function deleteCheckinStaffAction(formData: FormData) {
  */
 export async function resetUserPasswordAction(formData: FormData) {
   await requireAdmin();
+  // 戻り先タブ(ロール別のパスワード管理タブ)。不正値は運営者タブに落とす
+  const rawTab = String(formData.get("tab") || "");
+  const tab = ["pw_admin", "pw_checkin", "pw_member"].includes(rawTab)
+    ? rawTab
+    : "pw_admin";
   const memberId = String(formData.get("memberId") || "");
   const password = String(formData.get("password") || "");
-  if (!memberId) redirect("/admin/settings?tab=password&error=user_not_found");
+  if (!memberId) redirect(`/admin/settings?tab=${tab}&error=user_not_found`);
   if (password.length < PASSWORD_MIN_LENGTH) {
-    redirect("/admin/settings?tab=password&error=weak_password");
+    redirect(`/admin/settings?tab=${tab}&error=weak_password`);
   }
   const rows = await query<{ id: string }>(
     "select id from members where id = $1 and is_active",
     [memberId]
   );
-  if (!rows[0]) redirect("/admin/settings?tab=password&error=user_not_found");
+  if (!rows[0]) redirect(`/admin/settings?tab=${tab}&error=user_not_found`);
   await setPassword(memberId, password);
-  redirect("/admin/settings?tab=password&pw_reset=1");
+  redirect(`/admin/settings?tab=${tab}&pw_reset=1`);
 }
