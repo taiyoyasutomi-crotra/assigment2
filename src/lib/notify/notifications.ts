@@ -57,11 +57,15 @@ export async function countUnreadNotifications(memberId: string): Promise<number
   return rows[0].c;
 }
 
-/** 会員向け: 自分宛のお知らせをすべて既読にする */
-export async function markAllNotificationsRead(memberId: string): Promise<void> {
+/** 会員向け: お知らせ1件を既読にする(本文を開いたときに呼ばれる。本人のもののみ) */
+export async function markNotificationRead(
+  notificationId: string,
+  memberId: string
+): Promise<void> {
   await query(
-    "update notifications set read_at = now() where member_id = $1 and read_at is null",
-    [memberId]
+    `update notifications set read_at = now()
+     where id = $1 and member_id = $2 and read_at is null`,
+    [notificationId, memberId]
   );
 }
 

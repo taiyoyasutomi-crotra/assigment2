@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requireMember } from "@/lib/auth/session";
 import {
   deleteMyNotification,
-  markAllNotificationsRead,
+  markNotificationRead,
 } from "@/lib/notify/notifications";
 
 /** お知らせの削除(本人のもののみ。運営側の通知履歴には残る) */
@@ -19,12 +19,12 @@ export async function deleteNotificationAction(formData: FormData) {
 }
 
 /**
- * お知らせページを開いたときに全件を既読にする(クライアントから呼ばれる)。
+ * お知らせ1件を既読にする(件名をタップして本文を開いたときにクライアントから呼ばれる)。
  * ヘッダーの未読バッジはレイアウトが描画しており、ページ遷移では
- * レイアウトが再描画されないため、レイアウトごと再検証してバッジを消す
+ * レイアウトが再描画されないため、レイアウトごと再検証してバッジを更新する
  */
-export async function markNotificationsReadAction() {
+export async function markOneNotificationReadAction(notificationId: string) {
   const member = await requireMember();
-  await markAllNotificationsRead(member.id);
+  await markNotificationRead(notificationId, member.id);
   revalidatePath("/", "layout");
 }
