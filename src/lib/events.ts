@@ -10,6 +10,10 @@ export type EventRow = {
   closes_at: Date;
   /** 終了日時(任意)。過ぎると自動で「完了」扱い。未設定なら手動完了まで開催中 */
   ends_at: Date | null;
+  /** 運営者が編集した告知文。null = 自動生成を使う */
+  announce_text: string | null;
+  /** 運営者が編集した当選連絡の文面({お名前} 等の差し込みタグ入り)。null = 自動生成を使う */
+  win_message: string | null;
   status: "draft" | "open" | "closed" | "selected" | "finished";
 };
 
@@ -172,6 +176,16 @@ export async function updateEventSettings(
     ]
   );
   return { ok: true };
+}
+
+/** 告知文の保存。null で自動生成に戻す */
+export async function updateAnnounceText(id: string, text: string | null): Promise<void> {
+  await query("update events set announce_text = $2 where id = $1", [id, text]);
+}
+
+/** 当選連絡の文面の保存。null で自動生成に戻す */
+export async function updateWinMessage(id: string, text: string | null): Promise<void> {
+  await query("update events set win_message = $2 where id = $1", [id, text]);
 }
 
 // 申込数のカウント: キャンセル済みは数えない。名簿を取込済みの場合、

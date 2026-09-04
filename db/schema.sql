@@ -35,6 +35,9 @@ create table events (
   closes_at   timestamptz not null,
   -- 終了日時(任意)。過ぎると自動で「完了」扱い。未設定なら手動完了まで開催中
   ends_at     timestamptz,
+  -- 運営者が編集した告知文・当選連絡の文面。null = 自動生成を使う
+  announce_text text,
+  win_message   text,
   status      text not null default 'open'
               check (status in ('draft', 'open', 'closed', 'selected', 'finished')),
   created_at  timestamptz not null default now(),

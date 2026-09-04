@@ -10,6 +10,7 @@ import {
 import { allowlistSummary, allowlistContains } from "@/lib/allowlist";
 import { listApplicationsForEvent, listNotificationsForEvent } from "@/lib/adminQueries";
 import { buildAnnouncement } from "@/lib/announce";
+import { defaultWinMessage, WIN_MESSAGE_TAGS } from "@/lib/mail";
 import { formatJst, toJstLocalInput } from "@/lib/format";
 import { appUrl } from "@/lib/config";
 import {
@@ -24,7 +25,7 @@ import {
   approveApplicationAction,
   deleteApplicationAction,
 } from "@/app/admin/actions";
-import { CopyButton } from "@/components/CopyButton";
+import { TemplateEditor } from "@/components/TemplateEditor";
 import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
 import { CancelButton } from "@/components/CancelButton";
 
@@ -54,6 +55,7 @@ export default async function AdminEventDetailPage({
     updated?: string;
     approved?: string;
     app_deleted?: string;
+    template_saved?: string;
     error?: string;
   }>;
 }) {
@@ -233,6 +235,12 @@ export default async function AdminEventDetailPage({
         </div>
       )}
       {sp.app_deleted && <div className="notice success">申込を削除しました。</div>}
+      {sp.template_saved && (
+        <div className="notice success">
+          {sp.template_saved === "announce" ? "告知文" : "当選連絡の文面"}
+          を保存しました。
+        </div>
+      )}
       {sp.selected && (
         <div className="notice success">
           選定を実行しました(当選 {sp.selected} 名 / 待機 {sp.waitlisted ?? 0} 名
@@ -391,19 +399,42 @@ export default async function AdminEventDetailPage({
         </>
       )}
 
-      <h2>告知文</h2>
+      <h2>告知文(募集の投稿文)</h2>
       <div className="card">
         <p className="muted">
           コピーしてコミュニティのチャットに投稿してください(投稿は手動)。
+          文面は自由に書き換えて「保存」できます。保存すると、日時などのイベント設定を
+          変更しても文面は変わらないため、変更した場合は文面も直してください。
         </p>
-        <textarea
-          className="announce-box"
-          readOnly
-          defaultValue={buildAnnouncement(event)}
+        <TemplateEditor
+          eventId={event.id}
+          field="announce"
+          savedText={event.announce_text}
+          defaultText={buildAnnouncement(event)}
+          copyLabel="告知文をコピー"
+          rows={20}
         />
-        <div style={{ marginTop: 8 }}>
-          <CopyButton text={buildAnnouncement(event)} />
-        </div>
+      </div>
+
+      <h2>当選連絡の文面</h2>
+      <div className="card">
+        <p className="muted">
+          選定・繰上の当選者に、マイページの「お知らせ」で届く文面です(メールは送りません)。
+          「選定を実行」の前に編集・保存してください。繰上当選の連絡にも同じ文面が使われます。
+          次のタグは通知の作成時に自動で実際の値に置き換わります:{" "}
+          {WIN_MESSAGE_TAGS.map((tag) => (
+            <code key={tag} style={{ marginRight: 6 }}>
+              {tag}
+            </code>
+          ))}
+        </p>
+        <TemplateEditor
+          eventId={event.id}
+          field="win"
+          savedText={event.win_message}
+          defaultText={defaultWinMessage()}
+          rows={18}
+        />
       </div>
 
       <h2>申込一覧</h2>

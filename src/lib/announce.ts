@@ -1,5 +1,10 @@
 // 告知文の自動生成(F2)。運営者がコピーしてチャットに手動投稿する(半自動化)。
+// 文面は顧客の募集テンプレ(2026-09-04 受領)をベースに、本システムの運用に合わせて調整:
+// - 申込は Google フォームではなく本システムの申込ページ(要ログイン)
+// - 先着順ではなく、応募多数の場合は抽選(結果はマイページの「お知らせ」で通知)
+// - キャンセルは DM ではなくマイページの申込状況から
 // 「結果は申込状況ページで確認」の案内は必須(これがないと問い合わせが運営者に集中する)。
+// 運営者が編集して保存した場合(event.announce_text)はそちらが優先される。
 import { appUrl } from "@/lib/config";
 import { formatJst } from "@/lib/format";
 import { type EventRow } from "@/lib/events";
@@ -7,19 +12,30 @@ import { type EventRow } from "@/lib/events";
 export function buildAnnouncement(event: EventRow): string {
   const url = `${appUrl()}/events/${event.id}`;
   const lines = [
-    `【参加者募集】${event.title}`,
+    `🌙✨${event.title} 開催決定✨🌙`,
+    "",
+    "みんなに会えるリアルイベント、やります!!",
     "",
     ...(event.description ? [event.description, ""] : []),
-    `日時: ${formatJst(event.starts_at)}`,
-    `会場: ${event.venue}`,
-    `定員: ${event.capacity}名`,
-    "※応募多数の場合は抽選です",
+    `【日時】${formatJst(event.starts_at)}`,
+    `【場所】${event.venue}`,
+    `【定員】${event.capacity}名`,
     "",
-    `お申し込みはこちら: ${url}`,
-    `申込締切: ${formatJst(event.closes_at)}`,
+    "【申込方法】",
+    "下の申込ページから申込してね⬇️(ログインが必要です)",
+    url,
+    `【申込締切】${formatJst(event.closes_at)}`,
     "",
-    "抽選・繰上の結果は、当選された方にマイページの「お知らせ」で通知します。",
-    `結果は申込状況(${appUrl()}/my)からも確認できます。`,
+    "【注意事項】",
+    "・サロン会員さん限定です!会員以外の方は参加できません",
+    "・応募多数の場合は抽選です。結果は当選された方にマイページの「お知らせ」で通知します",
+    `・抽選・繰上の結果は申込状況(${appUrl()}/my)からいつでも確認できます`,
+    "・お連れ様の同伴はできません(会員さんご本人のみ)",
+    "・キャンセルする場合はマイページの申込状況から早めにお手続きしてね🙏",
+    "・無断キャンセルはダメ、絶対!(繰り上げを待ってる子がいます😢)",
+    "・URLの転載は本当に本当にやめてください!!",
+    "",
+    "当日みんなに会えるの楽しみにしてます♡",
   ];
   return lines.join("\n");
 }

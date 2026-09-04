@@ -12,7 +12,12 @@ import {
   updateEventSettings,
   updateDraftEvent,
   publishEvent,
+  getEvent,
+  updateAnnounceText,
+  updateWinMessage,
 } from "@/lib/events";
+import { buildAnnouncement } from "@/lib/announce";
+import { defaultWinMessage } from "@/lib/mail";
 import { parseJstLocal } from "@/lib/format";
 
 /** 終了日時など任意の datetime-local 入力。空なら null */
@@ -151,6 +156,30 @@ export async function updateEventAction(formData: FormData) {
     redirect(`/admin/events/${eventId}?error=${encodeURIComponent(result.error)}`);
   }
   redirect(`/admin/events/${eventId}?updated=1`);
+}
+
+/**
+ * 告知文・当選連絡の文面の保存。
+ * 空にした場合と自動生成そのままの場合は null で保存し、以後もイベント設定の
+ * 変更(日時・会場など)が文面に追従する。編集して保存すると文面は固定される。
+ */
+export async function saveTemplateAction(formData: FormData) {
+  await requireAdmin();
+  const eventId = String(formData.get("eventId") || "");
+  const field = String(formData.get("field") || "");
+  const text = String(formData.get("text") || "");
+  const event = await getEvent(eventId);
+  if (!event || (field !== "announce" && field !== "win")) {
+    redirect(`/admin/events/${eventId}?error=${encodeURIComponent("保存できませんでした")}`);
+  }
+  const defaultText = field === "announce" ? buildAnnouncement(event) : defaultWinMessage();
+  const value = !text.trim() || text.trim() === defaultText.trim() ? null : text;
+  if (field === "announce") {
+    await updateAnnounceText(eventId, value);
+  } else {
+    await updateWinMessage(eventId, value);
+  }
+  redirect(`/admin/events/${eventId}?template_saved=${field}`);
 }
 
 /** 名簿外申込の承認: メールアドレスを会員名簿に追加し、選定対象にする */
