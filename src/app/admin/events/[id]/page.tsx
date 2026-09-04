@@ -15,6 +15,7 @@ import { formatJst, toJstLocalInput } from "@/lib/format";
 import { appUrl } from "@/lib/config";
 import {
   closeEventAction,
+  reopenEventAction,
   runSelectionAction,
   finishEventAction,
   restoreEventAction,
@@ -46,6 +47,7 @@ export default async function AdminEventDetailPage({
   searchParams: Promise<{
     created?: string;
     closed?: string;
+    reopened?: string;
     selected?: string;
     waitlisted?: string;
     excluded?: string;
@@ -170,6 +172,11 @@ export default async function AdminEventDetailPage({
         </div>
       )}
       {sp.closed && <div className="notice success">募集を締め切りました。</div>}
+      {sp.reopened && (
+        <div className="notice success">
+          再募集を開始しました(募集中に戻りました)。申込ページが再び有効になっています。
+        </div>
+      )}
       {sp.finished && (
         <div className="notice success">
           イベントを完了にしました(一覧の「終了したイベント」に移動します)。
@@ -282,17 +289,39 @@ export default async function AdminEventDetailPage({
             </ConfirmSubmitButton>
           </form>
         </div>
+        {canSelect && (
+          <form
+            action={reopenEventAction}
+            style={{
+              display: "flex",
+              gap: 8,
+              alignItems: "flex-end",
+              flexWrap: "wrap",
+              marginTop: 12,
+            }}
+          >
+            <input type="hidden" name="eventId" value={event.id} />
+            <label className="field">
+              新しい申込締切
+              <input type="datetime-local" name="closesAt" required />
+            </label>
+            <button type="submit" className="secondary">
+              再募集をかける(募集中に戻す)
+            </button>
+          </form>
+        )}
       </div>
 
-      {canEdit && (
-        <>
-          <h2>イベント設定の変更</h2>
-          <div className="card">
+      {canEdit &&
+        (() => {
+          const settingsNote = (
             <p className="muted">
               開催日時・会場・定員(当選人数)・申込締切・終了日時・概要は選定前まで変更できます。
               締切を未来の日時に延ばすと、募集中に戻ります。
               終了日時を設定すると、その日時を過ぎたイベントは自動で「完了」になります。
             </p>
+          );
+          const settingsForm = (
             <EventForm
               variant="settings"
               eventId={event.id}
@@ -305,47 +334,75 @@ export default async function AdminEventDetailPage({
                 endsAt: event.ends_at ? toJstLocalInput(event.ends_at) : "",
               }}
             />
+          );
+          // 締切後は通常使わないため折りたたむ(締切の延長=募集再開や、
+          // 選定前の定員調整が必要なときだけ開く)
+          return eff === "open" ? (
+            <>
+              <h2>イベント設定の変更</h2>
+              <div className="card">
+                {settingsNote}
+                {settingsForm}
+              </div>
+            </>
+          ) : (
+            <details className="card">
+              <summary>イベント設定の変更(締切後は通常不要)</summary>
+              {settingsNote}
+              {settingsForm}
+            </details>
+          );
+        })()}
+
+      {/* 告知文は募集中だけ表示する(締切後は投稿する場面がない。
+          締切を延ばして募集中に戻せば再び表示される) */}
+      {!finished && eff === "open" && (
+        <>
+          <h2>告知文(募集の投稿文)</h2>
+          <div className="card">
+            <p className="muted">
+              コピーしてコミュニティのチャットに投稿してください(投稿は手動)。
+              文面は自由に書き換えて「保存」できます。保存すると、日時などのイベント設定を
+              変更しても文面は変わらないため、変更した場合は文面も直してください。
+            </p>
+            <TemplateEditor
+              eventId={event.id}
+              field="announce"
+              savedText={event.announce_text}
+              defaultText={buildAnnouncement(event)}
+              copyLabel="告知文をコピー"
+              rows={20}
+            />
           </div>
         </>
       )}
 
-      <h2>告知文(募集の投稿文)</h2>
-      <div className="card">
-        <p className="muted">
-          コピーしてコミュニティのチャットに投稿してください(投稿は手動)。
-          文面は自由に書き換えて「保存」できます。保存すると、日時などのイベント設定を
-          変更しても文面は変わらないため、変更した場合は文面も直してください。
-        </p>
-        <TemplateEditor
-          eventId={event.id}
-          field="announce"
-          savedText={event.announce_text}
-          defaultText={buildAnnouncement(event)}
-          copyLabel="告知文をコピー"
-          rows={20}
-        />
-      </div>
-
-      <h2>当選連絡の文面</h2>
-      <div className="card">
-        <p className="muted">
-          選定・繰上の当選者に、マイページの「お知らせ」で届く文面です(メールは送りません)。
-          「選定を実行」の前に編集・保存してください。繰上当選の連絡にも同じ文面が使われます。
-          次のタグは通知の作成時に自動で実際の値に置き換わります:{" "}
-          {WIN_MESSAGE_TAGS.map((tag) => (
-            <code key={tag} style={{ marginRight: 6 }}>
-              {tag}
-            </code>
-          ))}
-        </p>
-        <TemplateEditor
-          eventId={event.id}
-          field="win"
-          savedText={event.win_message}
-          defaultText={defaultWinMessage()}
-          rows={18}
-        />
-      </div>
+      {/* 当選連絡は選定前の編集が主だが、選定後もキャンセル時の繰上連絡で
+          使うため完了までは表示する */}
+      {!finished && (
+        <>
+          <h2>当選連絡の文面</h2>
+          <div className="card">
+            <p className="muted">
+              選定・繰上の当選者に、マイページの「お知らせ」で届く文面です(メールは送りません)。
+              「選定を実行」の前に編集・保存してください。繰上当選の連絡にも同じ文面が使われます。
+              次のタグは通知の作成時に自動で実際の値に置き換わります:{" "}
+              {WIN_MESSAGE_TAGS.map((tag) => (
+                <code key={tag} style={{ marginRight: 6 }}>
+                  {tag}
+                </code>
+              ))}
+            </p>
+            <TemplateEditor
+              eventId={event.id}
+              field="win"
+              savedText={event.win_message}
+              defaultText={defaultWinMessage()}
+              rows={18}
+            />
+          </div>
+        </>
+      )}
 
       <h2>申込一覧</h2>
       {offRosterCount > 0 && (

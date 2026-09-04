@@ -24,6 +24,7 @@ import { buildAnnouncement } from "@/lib/announce";
 import { defaultWinMessage } from "@/lib/mail";
 import { parseJstLocal } from "@/lib/format";
 
+import { effectiveStatus, isFinished } from "@/lib/events";
 import { approveApplicationEmail, deleteApplication } from "@/lib/applications";
 import { runSelection } from "@/lib/selection";
 import { previewCancel, executeCancel, type CancelPreview, type CancelResult } from "@/lib/cancel";
@@ -130,6 +131,32 @@ export async function runSelectionAction(formData: FormData) {
   redirect(
     `/admin/events/${eventId}?selected=${result.winners}&waitlisted=${result.waitlisted}&excluded=${result.excluded}`
   );
+}
+
+/** 再募集: 新しい申込締切を設定して募集中に戻す(締切後・選定前のみ) */
+export async function reopenEventAction(formData: FormData) {
+  await requireAdmin();
+  const eventId = String(formData.get("eventId") || "");
+  const errUrl = (message: string) =>
+    `/admin/events/${eventId}?error=${encodeURIComponent(message)}`;
+
+  const event = await getEvent(eventId);
+  if (!event) redirect(errUrl("イベントが見つかりません"));
+  if (isFinished(event) || effectiveStatus(event) !== "closed") {
+    redirect(errUrl("再募集は締切後・選定前のイベントのみ可能です"));
+  }
+  const closesAt = parseJstLocal(String(formData.get("closesAt") || ""));
+  if (isNaN(closesAt.getTime())) redirect(errUrl("新しい申込締切を入力してください"));
+  if (closesAt <= new Date()) redirect(errUrl("新しい申込締切は未来の日時にしてください"));
+  if (closesAt >= new Date(event.starts_at)) {
+    redirect(errUrl("申込締切はイベント開始より前にしてください"));
+  }
+  await query(
+    `update events set closes_at = $2, status = 'open'
+     where id = $1 and status in ('open', 'closed')`,
+    [eventId, closesAt]
+  );
+  redirect(`/admin/events/${eventId}?reopened=1`);
 }
 
 /** 手動でイベントを完了にする(一覧の「終了したイベント」へ移す) */

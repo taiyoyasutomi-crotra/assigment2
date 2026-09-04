@@ -514,6 +514,15 @@ label.field.invalid textarea {
   font-weight: 400;
 }
 
+/* 締切後のイベント設定など、普段使わないセクションの折りたたみ */
+details.card summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+details.card[open] summary {
+  margin-bottom: 12px;
+}
+
 .table-scroll {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
