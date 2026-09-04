@@ -10,7 +10,7 @@ import {
 import { allowlistSummary, allowlistContains } from "@/lib/allowlist";
 import { listApplicationsForEvent, listNotificationsForEvent } from "@/lib/adminQueries";
 import { buildAnnouncement } from "@/lib/announce";
-import { defaultWinMessage, WIN_MESSAGE_TAGS } from "@/lib/mail";
+import { defaultWinMessage } from "@/lib/mail";
 import { formatJst, toJstLocalInput } from "@/lib/format";
 import { appUrl } from "@/lib/config";
 import {
@@ -386,18 +386,15 @@ export default async function AdminEventDetailPage({
             <p className="muted">
               選定・繰上の当選者に、マイページの「お知らせ」で届く文面です(メールは送りません)。
               「選定を実行」の前に編集・保存してください。繰上当選の連絡にも同じ文面が使われます。
-              次のタグは通知の作成時に自動で実際の値に置き換わります:{" "}
-              {WIN_MESSAGE_TAGS.map((tag) => (
-                <code key={tag} style={{ marginRight: 6 }}>
-                  {tag}
-                </code>
-              ))}
+              <code>{"{お名前}"}</code> と <code>{"{チケットURL}"}</code>{" "}
+              は当選者ごとに実際の名前・チケットのURLへ自動で置き換わるので、
+              この2つはこのまま残してください。
             </p>
             <TemplateEditor
               eventId={event.id}
               field="win"
               savedText={event.win_message}
-              defaultText={defaultWinMessage()}
+              defaultText={defaultWinMessage(event)}
               rows={18}
             />
           </div>

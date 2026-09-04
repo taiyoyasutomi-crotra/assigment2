@@ -9,33 +9,30 @@ import { appUrl } from "@/lib/config";
 import { formatJst } from "@/lib/format";
 import type { EventRow } from "@/lib/events";
 
-/** 当選連絡の文面で使える差し込みタグ(管理画面の説明表示にも使う) */
-export const WIN_MESSAGE_TAGS = [
-  "{お名前}",
-  "{イベント名}",
-  "{日時}",
-  "{会場}",
-  "{チケットURL}",
-  "{マイページURL}",
-] as const;
-
-/** 当選連絡のデフォルト文面(差し込みタグ入り)。運営者が編集する際の叩き台 */
-export function defaultWinMessage(): string {
+/**
+ * 当選連絡のデフォルト文面。運営者が編集する際の叩き台。
+ * イベント名・日時・会場など編集時点で確定している値は実際の値を埋め込み、
+ * 当選者ごとに変わる {お名前} と {チケットURL} だけタグとして残す
+ * (タグは通知の作成時に置き換える。{イベント名} 等のタグも書けば使える)
+ */
+export function defaultWinMessage(
+  event: Pick<EventRow, "title" | "starts_at" | "venue">
+): string {
   return [
     "{お名前}さん、こんにちは!サロン運営です🌙",
-    "「{イベント名}」へのお申込みありがとうございました!",
+    `「${event.title}」へのお申込みありがとうございました!`,
     "",
     "ご参加確定です🎉✨当日お会いできるのを楽しみにしています!",
     "",
-    "【日時】{日時}",
-    "【会場】{会場}",
+    `【日時】${formatJst(event.starts_at)}`,
+    `【会場】${event.venue}`,
     "",
     "当日は受付で、下記チケットページの入場QRコードをご提示ください📋",
     "{チケットURL}",
     "",
     "⚠️キャンセルされる場合は、マイページの申込状況から必ずお手続きください。",
     "キャンセル待ちの方がいらっしゃいます🙏",
-    "申込状況の確認: {マイページURL}",
+    `申込状況の確認: ${appUrl()}/my`,
   ].join("\n");
 }
 
@@ -58,7 +55,7 @@ export function buildWinMail(input: {
   // 運営画面の通知履歴にのみ残す)。kind は履歴記録のため引き続き受け取る。
   const { event, displayName, ticketId } = input;
   const subject = `【参加確定🌙】${event.title}`;
-  const template = event.win_message ?? defaultWinMessage();
+  const template = event.win_message ?? defaultWinMessage(event);
   const body = fillTags(template, {
     "{お名前}": displayName,
     "{イベント名}": event.title,

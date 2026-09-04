@@ -200,7 +200,8 @@ export async function saveTemplateAction(formData: FormData) {
   if (!event || (field !== "announce" && field !== "win")) {
     redirect(`/admin/events/${eventId}?error=${encodeURIComponent("保存できませんでした")}`);
   }
-  const defaultText = field === "announce" ? buildAnnouncement(event) : defaultWinMessage();
+  const defaultText =
+    field === "announce" ? buildAnnouncement(event) : defaultWinMessage(event);
   const value = !text.trim() || text.trim() === defaultText.trim() ? null : text;
   if (field === "announce") {
     await updateAnnounceText(eventId, value);
