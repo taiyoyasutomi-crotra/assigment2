@@ -49,7 +49,6 @@ export function EventForm({
   initial?: Partial<Record<string, string>>;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
-  const [restored, setRestored] = useState(false);
   const storageKey = `eventForm:${variant}:${eventId ?? "new"}`;
 
   const readForm = (): Record<string, string> => {
@@ -93,7 +92,7 @@ export function EventForm({
     setLiveErrors(errors);
   };
 
-  // 初回表示時: 自動保存が残っていれば欄に書き戻す
+  // 初回表示時: 自動保存が残っていれば黙って欄に書き戻す
   useEffect(() => {
     try {
       const raw = localStorage.getItem(storageKey);
@@ -107,10 +106,7 @@ export function EventForm({
           changed = true;
         }
       }
-      if (changed) {
-        setRestored(true);
-        computeLiveErrors();
-      } else if (variant === "create") clearDraft();
+      if (changed) computeLiveErrors();
     } catch {}
     // storageKey はマウント後に変わらない
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -165,23 +161,6 @@ export function EventForm({
       <input type="hidden" name="variant" value={variant} />
       {eventId && <input type="hidden" name="eventId" value={eventId} />}
       {state?.error && <div className="notice error">{state.error}</div>}
-      {restored && (
-        <div className="notice info" style={{ marginBottom: 0 }}>
-          入力途中の内容を復元しました(入力は自動保存されています)。{" "}
-          <button
-            type="button"
-            className="secondary small"
-            onClick={() => {
-              clearDraft();
-              formRef.current?.reset();
-              setRestored(false);
-              setLiveErrors(null);
-            }}
-          >
-            復元を破棄して元に戻す
-          </button>
-        </div>
-      )}
 
       {variant !== "settings" && (
         <label className={fieldClass("title")}>
