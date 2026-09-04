@@ -15,61 +15,78 @@ import {
   getEvent,
   updateAnnounceText,
   updateWinMessage,
+  validateEventFields,
+  type EventFieldErrors,
 } from "@/lib/events";
 import { buildAnnouncement } from "@/lib/announce";
 import { defaultWinMessage } from "@/lib/mail";
 import { parseJstLocal } from "@/lib/format";
 
-/** 終了日時など任意の datetime-local 入力。空なら null */
-function parseOptionalJst(value: FormDataEntryValue | null): Date | null {
-  const raw = String(value || "");
-  return raw ? parseJstLocal(raw) : null;
-}
 import { approveApplicationEmail, deleteApplication } from "@/lib/applications";
 import { runSelection } from "@/lib/selection";
 import { previewCancel, executeCancel, type CancelPreview, type CancelResult } from "@/lib/cancel";
 
-export async function createEventAction(formData: FormData) {
-  await requireAdmin();
-  // 「一時保存」ボタンからの送信は下書き(作成中)として保存する
-  const draft = formData.get("mode") === "draft";
-  const result = await createEvent({
-    title: String(formData.get("title") || ""),
-    startsAt: parseJstLocal(String(formData.get("startsAt") || "")),
-    venue: String(formData.get("venue") || ""),
-    description: String(formData.get("description") || ""),
-    capacity: Number(formData.get("capacity")),
-    closesAt: parseJstLocal(String(formData.get("closesAt") || "")),
-    endsAt: parseOptionalJst(formData.get("endsAt")),
-    draft,
-  });
-  if ("error" in result) {
-    redirect(`/admin/events?tab=new&error=${encodeURIComponent(result.error)}`);
-  }
-  if (draft) {
-    redirect(`/admin/events?tab=draft&saved=1`);
-  }
-  // 作成した瞬間に会員向けの申込ページが生える(F1)
-  redirect(`/admin/events/${result.id}?created=1`);
-}
+/**
+ * イベントフォーム(新規作成・下書き編集・設定変更)の送信結果。
+ * 入力ミスがあってもリダイレクトせず、入力値と項目別エラーをフォームに返す。
+ * 該当欄だけ強調表示し、入力し直しを不要にする。null = 未送信
+ */
+export type EventFormState = {
+  fieldErrors: EventFieldErrors;
+  /** 送信された入力値。フォームに残して再入力を不要にする */
+  values: Record<string, string>;
+  /** 項目に紐付かないエラー(イベントが見つからない等) */
+  error?: string;
+} | null;
 
-/** 下書き(作成中)の編集を保存 */
-export async function updateDraftAction(formData: FormData) {
+export async function submitEventFormAction(
+  _prev: EventFormState,
+  formData: FormData
+): Promise<EventFormState> {
   await requireAdmin();
+  const variant = String(formData.get("variant") || "");
   const eventId = String(formData.get("eventId") || "");
-  const result = await updateDraftEvent(eventId, {
-    title: String(formData.get("title") || ""),
-    startsAt: parseJstLocal(String(formData.get("startsAt") || "")),
-    venue: String(formData.get("venue") || ""),
-    description: String(formData.get("description") || ""),
-    capacity: Number(formData.get("capacity")),
-    closesAt: parseJstLocal(String(formData.get("closesAt") || "")),
-    endsAt: parseOptionalJst(formData.get("endsAt")),
-  });
-  if (!result.ok) {
-    redirect(`/admin/events/${eventId}?error=${encodeURIComponent(result.error)}`);
+  const values = Object.fromEntries(
+    ["title", "startsAt", "venue", "description", "capacity", "closesAt", "endsAt"].map(
+      (k) => [k, String(formData.get(k) ?? "")]
+    )
+  );
+
+  const input = {
+    title: values.title,
+    startsAt: parseJstLocal(values.startsAt),
+    venue: values.venue,
+    description: values.description,
+    capacity: Number(values.capacity || NaN),
+    closesAt: parseJstLocal(values.closesAt),
+    endsAt: values.endsAt ? parseJstLocal(values.endsAt) : null,
+  };
+  const fieldErrors = validateEventFields(
+    // イベント設定の変更にはイベント名の欄がない
+    variant === "settings" ? { ...input, title: undefined } : input
+  );
+  if (Object.keys(fieldErrors).length > 0) return { fieldErrors, values };
+
+  if (variant === "create") {
+    // 「一時保存」ボタンからの送信は下書き(作成中)として保存する
+    const draft = formData.get("mode") === "draft";
+    const result = await createEvent({ ...input, draft });
+    if ("error" in result) return { fieldErrors: {}, values, error: result.error };
+    if (draft) redirect(`/admin/events?tab=draft&saved=1`);
+    // 作成した瞬間に会員向けの申込ページが生える(F1)
+    redirect(`/admin/events/${result.id}?created=1`);
   }
-  redirect(`/admin/events/${eventId}?updated=1`);
+  if (variant === "draft") {
+    const result = await updateDraftEvent(eventId, input);
+    if (!result.ok) return { fieldErrors: {}, values, error: result.error };
+    redirect(`/admin/events/${eventId}?updated=1`);
+  }
+  if (variant === "settings") {
+    const result = await updateEventSettings(eventId, input);
+    if (!result.ok) return { fieldErrors: {}, values, error: result.error };
+    redirect(`/admin/events/${eventId}?updated=1`);
+  }
+  return { fieldErrors: {}, values, error: "不正なフォームです" };
 }
 
 /** 下書き(作成中)を公開して募集開始 */
@@ -138,24 +155,6 @@ export async function deleteEventAction(formData: FormData) {
   const eventId = String(formData.get("eventId") || "");
   await deleteEvent(eventId);
   redirect("/admin/events?deleted=1");
-}
-
-/** 開催日時・会場・定員・申込締切・終了日時・概要の変更 */
-export async function updateEventAction(formData: FormData) {
-  await requireAdmin();
-  const eventId = String(formData.get("eventId") || "");
-  const result = await updateEventSettings(eventId, {
-    startsAt: parseJstLocal(String(formData.get("startsAt") || "")),
-    venue: String(formData.get("venue") || ""),
-    capacity: Number(formData.get("capacity")),
-    closesAt: parseJstLocal(String(formData.get("closesAt") || "")),
-    endsAt: parseOptionalJst(formData.get("endsAt")),
-    description: String(formData.get("description") || ""),
-  });
-  if (!result.ok) {
-    redirect(`/admin/events/${eventId}?error=${encodeURIComponent(result.error)}`);
-  }
-  redirect(`/admin/events/${eventId}?updated=1`);
 }
 
 /**

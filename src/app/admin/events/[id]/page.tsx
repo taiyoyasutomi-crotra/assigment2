@@ -19,12 +19,11 @@ import {
   finishEventAction,
   restoreEventAction,
   deleteEventAction,
-  updateEventAction,
-  updateDraftAction,
   publishEventAction,
   approveApplicationAction,
   deleteApplicationAction,
 } from "@/app/admin/actions";
+import { EventForm } from "@/components/EventForm";
 import { TemplateEditor } from "@/components/TemplateEditor";
 import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
 import { CancelButton } from "@/components/CancelButton";
@@ -136,65 +135,19 @@ export default async function AdminEventDetailPage({
 
         <h2>下書きの編集</h2>
         <div className="card">
-          <form action={updateDraftAction} className="stack">
-            <input type="hidden" name="eventId" value={event.id} />
-            <label className="field">
-              イベント名
-              <input type="text" name="title" required defaultValue={event.title} />
-            </label>
-            <label className="field">
-              開催日時
-              <input
-                type="datetime-local"
-                name="startsAt"
-                required
-                defaultValue={toJstLocalInput(event.starts_at)}
-              />
-            </label>
-            <label className="field">
-              会場
-              <input type="text" name="venue" required defaultValue={event.venue} />
-            </label>
-            <label className="field">
-              概要(任意)
-              <textarea
-                name="description"
-                rows={4}
-                defaultValue={event.description ?? ""}
-                placeholder="イベントの内容・持ち物・注意事項など。会員向けの申込ページと告知文に表示されます"
-              />
-            </label>
-            <label className="field">
-              定員(当選者数)
-              <input
-                type="number"
-                name="capacity"
-                required
-                min={1}
-                defaultValue={event.capacity}
-              />
-            </label>
-            <label className="field">
-              申込締切日時
-              <input
-                type="datetime-local"
-                name="closesAt"
-                required
-                defaultValue={toJstLocalInput(event.closes_at)}
-              />
-            </label>
-            <label className="field">
-              イベント終了日時(任意。過ぎると自動で完了になります)
-              <input
-                type="datetime-local"
-                name="endsAt"
-                defaultValue={event.ends_at ? toJstLocalInput(event.ends_at) : ""}
-              />
-            </label>
-            <div>
-              <button type="submit">下書きを保存する</button>
-            </div>
-          </form>
+          <EventForm
+            variant="draft"
+            eventId={event.id}
+            initial={{
+              title: event.title,
+              startsAt: toJstLocalInput(event.starts_at),
+              venue: event.venue,
+              description: event.description ?? "",
+              capacity: String(event.capacity),
+              closesAt: toJstLocalInput(event.closes_at),
+              endsAt: event.ends_at ? toJstLocalInput(event.ends_at) : "",
+            }}
+          />
         </div>
       </main>
     );
@@ -340,61 +293,18 @@ export default async function AdminEventDetailPage({
               締切を未来の日時に延ばすと、募集中に戻ります。
               終了日時を設定すると、その日時を過ぎたイベントは自動で「完了」になります。
             </p>
-            <form action={updateEventAction} className="stack">
-              <input type="hidden" name="eventId" value={event.id} />
-              <label className="field">
-                開催日時
-                <input
-                  type="datetime-local"
-                  name="startsAt"
-                  required
-                  defaultValue={toJstLocalInput(event.starts_at)}
-                />
-              </label>
-              <label className="field">
-                会場
-                <input type="text" name="venue" required defaultValue={event.venue} />
-              </label>
-              <label className="field">
-                定員(当選人数)
-                <input
-                  type="number"
-                  name="capacity"
-                  required
-                  min={1}
-                  defaultValue={event.capacity}
-                />
-              </label>
-              <label className="field">
-                申込締切日時
-                <input
-                  type="datetime-local"
-                  name="closesAt"
-                  required
-                  defaultValue={toJstLocalInput(event.closes_at)}
-                />
-              </label>
-              <label className="field">
-                イベント終了日時(任意。過ぎると自動で完了になります)
-                <input
-                  type="datetime-local"
-                  name="endsAt"
-                  defaultValue={event.ends_at ? toJstLocalInput(event.ends_at) : ""}
-                />
-              </label>
-              <label className="field">
-                概要(任意)
-                <textarea
-                  name="description"
-                  rows={4}
-                  defaultValue={event.description ?? ""}
-                  placeholder="イベントの内容・持ち物・注意事項など。会員向けの申込ページと告知文に表示されます"
-                />
-              </label>
-              <div>
-                <button type="submit">変更を保存する</button>
-              </div>
-            </form>
+            <EventForm
+              variant="settings"
+              eventId={event.id}
+              initial={{
+                startsAt: toJstLocalInput(event.starts_at),
+                venue: event.venue,
+                description: event.description ?? "",
+                capacity: String(event.capacity),
+                closesAt: toJstLocalInput(event.closes_at),
+                endsAt: event.ends_at ? toJstLocalInput(event.ends_at) : "",
+              }}
+            />
           </div>
         </>
       )}

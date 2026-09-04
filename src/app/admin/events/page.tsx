@@ -8,8 +8,8 @@ import {
   type EventWithCount,
 } from "@/lib/events";
 import { formatJst } from "@/lib/format";
-import { createEventAction } from "@/app/admin/actions";
 import { SidebarNav } from "@/components/SidebarNav";
+import { EventForm } from "@/components/EventForm";
 
 export const dynamic = "force-dynamic";
 
@@ -153,56 +153,7 @@ export default async function AdminEventsPage({
                   すぐ公開しない場合は「一時保存」で作成中に保存できます(会員には非公開)。
                   申込は締切日時まで受け付け、応募が定員を超えた場合は選定時に抽選になります。
                 </p>
-                <form action={createEventAction} className="stack">
-                  <label className="field">
-                    イベント名
-                    <input
-                      type="text"
-                      name="title"
-                      required
-                      placeholder="ファンミーティング Vol.6"
-                    />
-                  </label>
-                  <label className="field">
-                    開催日時
-                    <input type="datetime-local" name="startsAt" required />
-                  </label>
-                  <label className="field">
-                    会場
-                    <input
-                      type="text"
-                      name="venue"
-                      required
-                      placeholder="渋谷カルチャーホール"
-                    />
-                  </label>
-                  <label className="field">
-                    概要(任意)
-                    <textarea
-                      name="description"
-                      rows={4}
-                      placeholder="イベントの内容・持ち物・注意事項など。会員向けの申込ページと告知文に表示されます"
-                    />
-                  </label>
-                  <label className="field">
-                    定員(当選者数)
-                    <input type="number" name="capacity" required min={1} defaultValue={10} />
-                  </label>
-                  <label className="field">
-                    申込締切日時
-                    <input type="datetime-local" name="closesAt" required />
-                  </label>
-                  <label className="field">
-                    イベント終了日時(任意。過ぎると自動で完了になります)
-                    <input type="datetime-local" name="endsAt" />
-                  </label>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    <button type="submit">イベントを作成する(公開)</button>
-                    <button type="submit" name="mode" value="draft" className="secondary">
-                      一時保存(作成中に保存)
-                    </button>
-                  </div>
-                </form>
+                <EventForm variant="create" />
               </div>
             </>
           ) : (

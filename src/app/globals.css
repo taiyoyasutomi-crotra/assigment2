@@ -502,6 +502,18 @@ select {
   background: #fff;
 }
 
+/* 入力ミスのあった欄だけ薄赤で強調する(値は残したまま直せる) */
+label.field.invalid input,
+label.field.invalid textarea {
+  background: #fef2f2;
+  border-color: #f87171;
+}
+.field-msg {
+  color: #b91c1c;
+  font-size: 0.82rem;
+  font-weight: 400;
+}
+
 .table-scroll {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
