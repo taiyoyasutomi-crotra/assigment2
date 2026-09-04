@@ -1,13 +1,35 @@
 "use client";
 
 // イベントのフォーム(新規作成・下書き編集・設定変更)。
-// 入力ミスがあってもページ遷移せず、入力値をそのまま残して
-// 満たしていない項目だけを薄赤で強調し、そこだけ直せるようにする。
-import { useActionState } from "react";
+// - 入力ミスがあってもページ遷移せず、入力値をそのまま残して
+//   満たしていない項目だけを薄赤で強調し、そこだけ直せるようにする
+// - 入力のたびにブラウザ(localStorage)へ自動保存し、リフレッシュや
+//   誤って閉じた場合も復元する。保存に成功したら消す
+import { useActionState, useEffect, useRef, useState } from "react";
 import { submitEventFormAction, type EventFormState } from "@/app/admin/actions";
 import type { EventField } from "@/lib/events";
 
 type Variant = "create" | "draft" | "settings";
+
+const FIELDS = [
+  "title",
+  "startsAt",
+  "venue",
+  "description",
+  "capacity",
+  "closesAt",
+  "endsAt",
+] as const;
+
+function fieldElement(
+  form: HTMLFormElement | null,
+  name: string
+): HTMLInputElement | HTMLTextAreaElement | null {
+  const el = form?.elements.namedItem(name);
+  return el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement
+    ? el
+    : null;
+}
 
 export function EventForm({
   variant,
@@ -19,8 +41,66 @@ export function EventForm({
   /** 編集フォームの初期値(datetime-local 形式の文字列)。新規作成では空 */
   initial?: Partial<Record<string, string>>;
 }) {
+  const formRef = useRef<HTMLFormElement>(null);
+  const [restored, setRestored] = useState(false);
+  const storageKey = `eventForm:${variant}:${eventId ?? "new"}`;
+
+  const readForm = (): Record<string, string> => {
+    const data: Record<string, string> = {};
+    for (const name of FIELDS) {
+      const el = fieldElement(formRef.current, name);
+      if (el) data[name] = el.value;
+    }
+    return data;
+  };
+
+  const saveDraft = () => {
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(readForm()));
+    } catch {}
+  };
+  const clearDraft = () => {
+    try {
+      localStorage.removeItem(storageKey);
+    } catch {}
+  };
+
+  // 初回表示時: 自動保存が残っていれば欄に書き戻す
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (!raw) return;
+      const saved = JSON.parse(raw) as Record<string, string>;
+      let changed = false;
+      for (const name of FIELDS) {
+        const el = fieldElement(formRef.current, name);
+        if (el && saved[name] !== undefined && el.value !== saved[name]) {
+          el.value = saved[name];
+          changed = true;
+        }
+      }
+      if (changed) setRestored(true);
+      else if (variant === "create") clearDraft();
+    } catch {}
+    // storageKey はマウント後に変わらない
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const [state, formAction] = useActionState<EventFormState, FormData>(
-    submitEventFormAction,
+    async (prev, formData) => {
+      // 成功時は redirect で戻ってこないため、先に消しておき、
+      // 入力ミスで戻ってきたときだけ保存し直す
+      clearDraft();
+      const result = await submitEventFormAction(prev, formData);
+      if (result) {
+        try {
+          const data: Record<string, string> = {};
+          for (const name of FIELDS) data[name] = String(formData.get(name) ?? "");
+          localStorage.setItem(storageKey, JSON.stringify(data));
+        } catch {}
+      }
+      return result;
+    },
     null
   );
 
@@ -32,10 +112,26 @@ export function EventForm({
     err(name) && <span className="field-msg">⚠ {err(name)}</span>;
 
   return (
-    <form action={formAction} className="stack">
+    <form ref={formRef} action={formAction} className="stack" onInput={saveDraft}>
       <input type="hidden" name="variant" value={variant} />
       {eventId && <input type="hidden" name="eventId" value={eventId} />}
       {state?.error && <div className="notice error">{state.error}</div>}
+      {restored && (
+        <div className="notice info" style={{ marginBottom: 0 }}>
+          入力途中の内容を復元しました(入力は自動保存されています)。{" "}
+          <button
+            type="button"
+            className="secondary small"
+            onClick={() => {
+              clearDraft();
+              formRef.current?.reset();
+              setRestored(false);
+            }}
+          >
+            復元を破棄して元に戻す
+          </button>
+        </div>
+      )}
 
       {variant !== "settings" && (
         <label className={fieldClass("title")}>
