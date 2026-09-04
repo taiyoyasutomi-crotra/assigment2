@@ -4,7 +4,6 @@ import "./globals.css";
 import { getSessionMember, roleHome } from "@/lib/auth/session";
 import { countUnreadNotifications } from "@/lib/notify/notifications";
 import { logoutAction } from "@/app/login/actions";
-import { MemoPanel } from "@/components/MemoPanel";
 
 export const metadata: Metadata = {
   title: "ファンミーティング参加受付",
@@ -73,7 +72,6 @@ export default async function RootLayout({
           </div>
         </header>
         {children}
-        <MemoPanel />
       </body>
     </html>
   );
