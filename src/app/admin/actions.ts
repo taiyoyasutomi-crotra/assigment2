@@ -15,9 +15,11 @@ import {
   getEvent,
   updateAnnounceText,
   updateWinMessage,
+} from "@/lib/events";
+import {
   validateEventFields,
   type EventFieldErrors,
-} from "@/lib/events";
+} from "@/lib/eventValidation";
 import { buildAnnouncement } from "@/lib/announce";
 import { defaultWinMessage } from "@/lib/mail";
 import { parseJstLocal } from "@/lib/format";

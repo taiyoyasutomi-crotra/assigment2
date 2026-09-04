@@ -1,4 +1,5 @@
 import { query, withTransaction } from "@/lib/db";
+import { validateEventFields } from "@/lib/eventValidation";
 
 export type EventRow = {
   id: string;
@@ -213,48 +214,6 @@ export type CreateEventInput = {
   /** true なら下書き(作成中)として保存。会員には公開されない */
   draft?: boolean;
 };
-
-export type EventField =
-  | "title"
-  | "startsAt"
-  | "venue"
-  | "capacity"
-  | "closesAt"
-  | "endsAt";
-export type EventFieldErrors = Partial<Record<EventField, string>>;
-
-/**
- * 項目ごとの入力チェック。フォームでは該当欄の強調表示に使う。
- * title を渡さない場合(イベント設定の変更)はイベント名を検査しない
- */
-export function validateEventFields(input: {
-  title?: string;
-  startsAt: Date;
-  venue: string;
-  capacity: number;
-  closesAt: Date;
-  endsAt: Date | null;
-}): EventFieldErrors {
-  const errors: EventFieldErrors = {};
-  if (input.title !== undefined && !input.title.trim())
-    errors.title = "イベント名を入力してください";
-  if (isNaN(input.startsAt.getTime()))
-    errors.startsAt = "開催日時を入力してください";
-  if (!input.venue.trim()) errors.venue = "会場を入力してください";
-  if (!Number.isInteger(input.capacity) || input.capacity <= 0)
-    errors.capacity = "定員は1以上の整数で入力してください";
-  if (isNaN(input.closesAt.getTime()))
-    errors.closesAt = "申込締切日時を入力してください";
-  else if (!errors.startsAt && input.closesAt >= input.startsAt)
-    errors.closesAt = "申込締切はイベント開始より前にしてください";
-  if (input.endsAt != null) {
-    if (isNaN(input.endsAt.getTime()))
-      errors.endsAt = "終了日時の形式が不正です";
-    else if (!errors.startsAt && input.endsAt <= input.startsAt)
-      errors.endsAt = "終了日時は開催日時より後にしてください";
-  }
-  return errors;
-}
 
 function validateEventInput(input: CreateEventInput): string | null {
   const errors = validateEventFields(input);

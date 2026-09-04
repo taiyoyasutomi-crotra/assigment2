@@ -3,11 +3,18 @@
 // イベントのフォーム(新規作成・下書き編集・設定変更)。
 // - 入力ミスがあってもページ遷移せず、入力値をそのまま残して
 //   満たしていない項目だけを薄赤で強調し、そこだけ直せるようにする
+// - 入力中も同じ検証をその場で行い、日時の矛盾(締切が開催より後など)は
+//   送信を待たずに警告する。入力途中の空欄は指摘しない
 // - 入力のたびにブラウザ(localStorage)へ自動保存し、リフレッシュや
 //   誤って閉じた場合も復元する。保存に成功したら消す
 import { useActionState, useEffect, useRef, useState } from "react";
 import { submitEventFormAction, type EventFormState } from "@/app/admin/actions";
-import type { EventField } from "@/lib/events";
+import {
+  validateEventFields,
+  type EventField,
+  type EventFieldErrors,
+} from "@/lib/eventValidation";
+import { parseJstLocal } from "@/lib/format";
 
 type Variant = "create" | "draft" | "settings";
 
@@ -65,6 +72,27 @@ export function EventForm({
     } catch {}
   };
 
+  // 入力中のリアルタイム検証。サーバーと同じ検証を使い、入力途中の欄(空欄)は
+  // 指摘しない(空欄は送信時に required とサーバー側が拾う)。
+  // null = まだ入力していない(サーバーから返った項目別エラーを表示する)
+  const [liveErrors, setLiveErrors] = useState<EventFieldErrors | null>(null);
+  const computeLiveErrors = () => {
+    const v = readForm();
+    const all = validateEventFields({
+      title: variant === "settings" ? undefined : v.title,
+      startsAt: parseJstLocal(v.startsAt || ""),
+      venue: v.venue ?? "",
+      capacity: Number(v.capacity || NaN),
+      closesAt: parseJstLocal(v.closesAt || ""),
+      endsAt: v.endsAt ? parseJstLocal(v.endsAt) : null,
+    });
+    const errors: EventFieldErrors = {};
+    for (const [name, message] of Object.entries(all)) {
+      if (v[name]) errors[name as EventField] = message;
+    }
+    setLiveErrors(errors);
+  };
+
   // 初回表示時: 自動保存が残っていれば欄に書き戻す
   useEffect(() => {
     try {
@@ -79,8 +107,10 @@ export function EventForm({
           changed = true;
         }
       }
-      if (changed) setRestored(true);
-      else if (variant === "create") clearDraft();
+      if (changed) {
+        setRestored(true);
+        computeLiveErrors();
+      } else if (variant === "create") clearDraft();
     } catch {}
     // storageKey はマウント後に変わらない
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -104,15 +134,34 @@ export function EventForm({
     null
   );
 
+  // サーバーから項目別エラーが返ったら、次の入力まではそれを表示する
+  // (初回マウント時は復元直後の検証結果を消さないようスキップ)
+  const prevState = useRef(state);
+  useEffect(() => {
+    if (prevState.current !== state) {
+      prevState.current = state;
+      setLiveErrors(null);
+    }
+  }, [state]);
+
   // エラーで戻ってきたときは送信した値を優先して欄に残す
   const value = (name: string) => state?.values?.[name] ?? initial[name] ?? "";
-  const err = (name: EventField) => state?.fieldErrors?.[name];
+  const err = (name: EventField) =>
+    liveErrors ? liveErrors[name] : state?.fieldErrors?.[name];
   const fieldClass = (name: EventField) => `field${err(name) ? " invalid" : ""}`;
   const msg = (name: EventField) =>
     err(name) && <span className="field-msg">⚠ {err(name)}</span>;
 
   return (
-    <form ref={formRef} action={formAction} className="stack" onInput={saveDraft}>
+    <form
+      ref={formRef}
+      action={formAction}
+      className="stack"
+      onInput={() => {
+        saveDraft();
+        computeLiveErrors();
+      }}
+    >
       <input type="hidden" name="variant" value={variant} />
       {eventId && <input type="hidden" name="eventId" value={eventId} />}
       {state?.error && <div className="notice error">{state.error}</div>}
@@ -126,6 +175,7 @@ export function EventForm({
               clearDraft();
               formRef.current?.reset();
               setRestored(false);
+              setLiveErrors(null);
             }}
           >
             復元を破棄して元に戻す
