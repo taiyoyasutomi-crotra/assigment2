@@ -32,8 +32,8 @@ import {
   publishEventAction,
   approveApplicationAction,
   deleteApplicationAction,
-  processQueueAction,
 } from "@/app/admin/actions";
+import { QueueSender } from "@/components/QueueSender";
 import { EventForm } from "@/components/EventForm";
 import { TemplateEditor } from "@/components/TemplateEditor";
 import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
@@ -70,9 +70,6 @@ export default async function AdminEventDetailPage({
     approved?: string;
     app_deleted?: string;
     template_saved?: string;
-    queue_sent?: string;
-    queue_failed?: string;
-    queue_remaining?: string;
     error?: string;
   }>;
 }) {
@@ -236,32 +233,10 @@ export default async function AdminEventDetailPage({
           送信状況は下の通知履歴で確認できます。
         </div>
       )}
-      {sp.queue_sent != null && (
-        <div className="notice success">
-          送信待ちのメールを処理しました(送信 {sp.queue_sent} 通
-          {Number(sp.queue_failed) > 0 && <> / 失敗 {sp.queue_failed} 通</>}
-          {Number(sp.queue_remaining) > 0 && (
-            <> / 残り {sp.queue_remaining} 通は明日以降に自動送信</>
-          )}
-          )。
-        </div>
-      )}
       {sp.error && <div className="notice error">{sp.error}</div>}
 
-      {pendingMails > 0 && (
-        <div className="notice info">
-          送信待ちのメールが {pendingMails} 通あります。無料枠(プロバイダごとの1日予算)の
-          範囲で、申込受付・繰上・キャンセル受付 → 当選 →
-          落選連絡(繰上待ち。繰上の可能性が低い後ろの方から) → 落選(名簿外)
-          の優先度順に送信され、残りは毎日自動で送信されます。
-          <form action={processQueueAction} style={{ marginTop: 8 }}>
-            <input type="hidden" name="eventId" value={event.id} />
-            <button type="submit" className="small">
-              送信待ちをいま送信する(本日の残り予算まで)
-            </button>
-          </form>
-        </div>
-      )}
+      {/* 送信待ちがあれば自動で送り切る(無料枠を使い切ったときだけ翌日へ持ち越す) */}
+      {pendingMails > 0 && <QueueSender initialPending={pendingMails} />}
 
       <div className="card">
         <div className="stat-row">

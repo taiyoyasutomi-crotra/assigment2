@@ -74,12 +74,18 @@ export async function countPendingNotifications(): Promise<number> {
 
 /**
  * 送信キューの処理。プロバイダごとの1日予算の残りの範囲で、優先度順に送信する。
- * maxSends を指定すると今回の処理量をさらに絞れる(申込・選定直後の呼び出し等、
- * サーバー処理の時間制限内に収めたい場合)。
+ * 予算内なら当日中に送り切る方針(2026-09-05 顧客要望)で、管理画面が
+ * このAPIを繰り返し呼んで自動で流し切る。予算を使い切ったときだけ翌日へ持ち越す。
+ * - maxSends: 今回の処理量の上限(サーバーの実行時間制限内に収める)
+ * - timeBudgetMs: 経過時間の上限。超えたら残りを次回に回す
+ * 多重実行対策: 送信前に status を pending → sent へ原子的に更新して行を
+ * 確保する(確保できなければ他の処理が担当中)。二重送信は起きない
  */
 export async function processNotificationQueue(opts?: {
   maxSends?: number;
+  timeBudgetMs?: number;
 }): Promise<QueueResult> {
+  const startedAt = Date.now();
   // プロバイダごとの本日送信数(Resend/Brevo の無料枠リセットに合わせて UTC の日付)。
   // provider 未記録の旧データは先頭プロバイダの消費として数える
   const providers = getNotifyProviders();
@@ -123,29 +129,44 @@ export async function processNotificationQueue(opts?: {
     );
 
     for (const n of rows) {
+      if (opts?.timeBudgetMs != null && Date.now() - startedAt > opts.timeBudgetMs) {
+        break; // 実行時間の上限。残りは次の呼び出しが引き継ぐ
+      }
       const needQr = n.kind === "selection_won" || n.kind === "promotion_won";
+      // 送信中止の判定・行の確保はすべて「status='pending' の場合だけ更新」で行い、
+      // 並行して動く別の処理と同じ行を二重に扱わないようにする
+      if (needQr && (n.app_status !== "won" || !n.ticket_token)) {
+        // 送信前にキャンセルされた等。当選メールは送らず失敗として記録する
+        const r = await query<{ id: string }>(
+          `update notifications set status = 'failed', error = $2
+           where id = $1 and status = 'pending' returning id`,
+          [n.id, "当選が取り消されたため送信を中止しました"]
+        );
+        if (r[0]) failed++;
+        continue;
+      }
+      if (n.kind === "waitlist_info" && n.app_status !== "waitlisted") {
+        // 送信前に繰上当選・キャンセルされた等。落選連絡は送らない
+        // (繰上時は cancel.ts が pending を消すので、これは競合時の保険)
+        const r = await query<{ id: string }>(
+          `update notifications set status = 'failed', error = $2
+           where id = $1 and status = 'pending' returning id`,
+          [n.id, "状態が変わったため送信を中止しました(繰上当選またはキャンセル)"]
+        );
+        if (r[0]) failed++;
+        continue;
+      }
+      const provider = budgets.find((p) => p.remaining > 0);
+      if (!provider) break; // 全プロバイダの本日予算を使い切った
+      // 行を確保(先に sent にしてから送る)。送信失敗時は failed に戻す。
+      // 送信後にマークする方式だと、並行実行時に同じメールが二重送信されうる
+      const claimed = await query<{ id: string }>(
+        `update notifications set status = 'sent', sent_at = now(), provider = $2
+         where id = $1 and status = 'pending' returning id`,
+        [n.id, provider.name]
+      );
+      if (!claimed[0]) continue; // 別の処理が担当済み
       try {
-        if (needQr && (n.app_status !== "won" || !n.ticket_token)) {
-          // 送信前にキャンセルされた等。当選メールは送らず失敗として記録する
-          await query(
-            "update notifications set status = 'failed', error = $2 where id = $1",
-            [n.id, "当選が取り消されたため送信を中止しました"]
-          );
-          failed++;
-          continue;
-        }
-        if (n.kind === "waitlist_info" && n.app_status !== "waitlisted") {
-          // 送信前に繰上当選・キャンセルされた等。落選連絡は送らない
-          // (繰上時は cancel.ts が pending を消すので、これは競合時の保険)
-          await query(
-            "update notifications set status = 'failed', error = $2 where id = $1",
-            [n.id, "状態が変わったため送信を中止しました(繰上当選またはキャンセル)"]
-          );
-          failed++;
-          continue;
-        }
-        const provider = budgets.find((p) => p.remaining > 0);
-        if (!provider) break; // 全プロバイダの本日予算を使い切った
         // 毎秒のレート制限(Resend: 2req/s)を守るため送信間隔をあける
         if (sent + failed > 0) await new Promise((r) => setTimeout(r, 600));
         const attachments = needQr
@@ -166,14 +187,11 @@ export async function processNotificationQueue(opts?: {
           attachments,
         });
         provider.remaining--;
-        await query(
-          "update notifications set status = 'sent', sent_at = now(), provider = $2 where id = $1",
-          [n.id, provider.name]
-        );
         sent++;
       } catch (e) {
         await query(
-          "update notifications set status = 'failed', error = $2 where id = $1",
+          `update notifications set status = 'failed', sent_at = null, provider = null,
+                  error = $2 where id = $1`,
           [n.id, e instanceof Error ? e.message : String(e)]
         );
         failed++;
