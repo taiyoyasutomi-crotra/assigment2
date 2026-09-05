@@ -11,6 +11,19 @@ export async function selfCancelAction(formData: FormData) {
   const app = await getApplicationByToken(token);
   if (!app) redirect("/");
 
+  // 当選のキャンセルは受付期限(設定時)まで(画面で隠すだけでなくサーバー側でも弾く)
+  if (
+    app.status === "won" &&
+    app.cancel_deadline != null &&
+    new Date(app.cancel_deadline) < new Date()
+  ) {
+    redirect(
+      `/a/${token}?error=${encodeURIComponent(
+        "キャンセルの受付は締め切りました。参加できなくなった場合はサロン運営までご連絡ください"
+      )}`
+    );
+  }
+
   // 当選はチケット無効化+繰上を伴うキャンセル、選定前・待機は取消のみ
   const result =
     app.status === "won"

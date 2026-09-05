@@ -171,6 +171,9 @@ export default async function AdminEventDetailPage({
               capacity: String(event.capacity),
               closesAt: toJstLocalInput(event.closes_at),
               endsAt: event.ends_at ? toJstLocalInput(event.ends_at) : "",
+              cancelDeadline: event.cancel_deadline
+                ? toJstLocalInput(event.cancel_deadline)
+                : "",
             }}
           />
         </div>
@@ -275,6 +278,9 @@ export default async function AdminEventDetailPage({
           {event.ends_at && <> 〜 {formatJst(event.ends_at)}</>} / 会場: {event.venue}
           {event.public_venue && <>(公開表記: {event.public_venue}。会場は当選者のみに表示)</>}{" "}
           / 申込締切: {formatJst(event.closes_at)}
+          {event.cancel_deadline && (
+            <> / キャンセル受付期限: {formatJst(event.cancel_deadline)}</>
+          )}
         </p>
         {event.description && (
           <p style={{ whiteSpace: "pre-wrap" }}>{event.description}</p>
@@ -383,6 +389,9 @@ export default async function AdminEventDetailPage({
                 capacity: String(event.capacity),
                 closesAt: toJstLocalInput(event.closes_at),
                 endsAt: event.ends_at ? toJstLocalInput(event.ends_at) : "",
+                cancelDeadline: event.cancel_deadline
+                  ? toJstLocalInput(event.cancel_deadline)
+                  : "",
               }}
             />
           );

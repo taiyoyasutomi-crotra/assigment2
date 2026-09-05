@@ -30,9 +30,14 @@ export default async function ApplicationStatusPage({
     app.event_status === "finished" ||
     (app.ends_at != null && new Date(app.ends_at) < new Date());
   const closed = new Date(app.closes_at) <= new Date();
+  // 当選のキャンセルは受付期限(設定時)まで。選定前・待機の取消は期限に関係なく可
+  const cancelDeadlinePassed =
+    app.cancel_deadline != null && new Date(app.cancel_deadline) < new Date();
   const canCancel =
     !eventFinished &&
-    (app.status === "applied" || app.status === "waitlisted" || app.status === "won");
+    (app.status === "applied" ||
+      app.status === "waitlisted" ||
+      (app.status === "won" && !cancelDeadlinePassed));
 
   const statusView: Record<string, { label: string; badge: string }> = {
     applied: { label: "受付済み(結果待ち)", badge: "applied" },
@@ -121,6 +126,13 @@ export default async function ApplicationStatusPage({
         </div>
       )}
 
+      {!eventFinished && app.status === "won" && cancelDeadlinePassed && (
+        <div className="notice info">
+          キャンセルの受付は {formatJst(app.cancel_deadline!)} で締め切りました。
+          参加できなくなった場合は、お手数ですがサロン運営までご連絡ください。
+        </div>
+      )}
+
       {canCancel && (
         <div className="card">
           <h2 style={{ marginTop: 0 }}>参加のキャンセル</h2>
@@ -128,6 +140,11 @@ export default async function ApplicationStatusPage({
             キャンセルは取り消せません。
             {app.status === "won" &&
               "キャンセルすると入場QRコードは無効になり、繰上待ちの方への連絡が行われます。"}
+            {app.status === "won" && app.cancel_deadline && (
+              <>
+                キャンセルの受付は {formatJst(app.cancel_deadline)} までです。
+              </>
+            )}
           </p>
           <form action={selfCancelAction}>
             <input type="hidden" name="token" value={token} />

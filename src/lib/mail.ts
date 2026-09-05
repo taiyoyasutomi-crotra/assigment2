@@ -12,7 +12,7 @@ import type { EventRow } from "@/lib/events";
 
 /** 当選連絡のデフォルト文面。運営者が編集する際の叩き台 */
 export function defaultWinMessage(
-  event: Pick<EventRow, "title" | "starts_at" | "venue">
+  event: Pick<EventRow, "title" | "starts_at" | "venue" | "cancel_deadline">
 ): string {
   return [
     "{お名前}さん、こんにちは!サロン運営です🌙",
@@ -26,8 +26,17 @@ export function defaultWinMessage(
     "当日は受付で、このメールに添付の入場QRコードをご提示ください📋",
     "(QRコードは下記の申込状況ページでも表示できます)",
     "",
-    "⚠️キャンセルされる場合は、下記ページの「参加をキャンセルする」から",
-    "必ずお手続きください。繰上待ちの方へ自動でご連絡が届きます🙏",
+    // キャンセル受付期限を設定している場合は文面に自動で入れる
+    ...(event.cancel_deadline
+      ? [
+          `⚠️キャンセルされる場合は【${formatJst(event.cancel_deadline)}まで】に、`,
+          "下記ページの「参加をキャンセルする」から必ずお手続きください。",
+        ]
+      : [
+          "⚠️キャンセルされる場合は、下記ページの「参加をキャンセルする」から",
+          "必ずお手続きください。",
+        ]),
+    "繰上待ちの方へ自動でご連絡が届きます🙏",
     "",
     "【申込状況の確認・キャンセルはこちら】",
     "{確認URL}",
@@ -121,7 +130,10 @@ export function buildCancelAckMail(input: {
 }
 
 export function buildWinMail(input: {
-  event: Pick<EventRow, "title" | "starts_at" | "venue" | "win_message">;
+  event: Pick<
+    EventRow,
+    "title" | "starts_at" | "venue" | "cancel_deadline" | "win_message"
+  >;
   applicantName: string;
   /** 申込の確認トークン(申込状況ページのURLに使う) */
   applicationToken: string;
@@ -137,6 +149,9 @@ export function buildWinMail(input: {
     "{イベント名}": event.title,
     "{日時}": formatJst(event.starts_at),
     "{会場}": event.venue,
+    "{キャンセル期限}": event.cancel_deadline
+      ? formatJst(event.cancel_deadline)
+      : "開催直前",
   });
   return { subject, body };
 }

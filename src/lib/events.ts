@@ -13,6 +13,8 @@ export type EventRow = {
   closes_at: Date;
   /** 終了日時(任意)。過ぎると自動で「完了」扱い。未設定なら手動完了まで開催中 */
   ends_at: Date | null;
+  /** キャンセル受付期限(任意)。当選メール等に自動記載。null = 開催まで可 */
+  cancel_deadline: Date | null;
   /** 運営者が編集した告知文。null = 自動生成を使う */
   announce_text: string | null;
   /** 運営者が編集した当選連絡の文面({お名前} 等の差し込みタグ入り)。null = 自動生成を使う */
@@ -144,6 +146,7 @@ export async function updateEventSettings(
     capacity: number;
     closesAt: Date;
     endsAt: Date | null;
+    cancelDeadline: Date | null;
     description: string;
   }
 ): Promise<UpdateEventResult> {
@@ -158,7 +161,7 @@ export async function updateEventSettings(
   const reopen = input.closesAt > new Date() && e.status === "closed";
   await query(
     `update events set starts_at = $2, venue = $3, public_venue = $4, capacity = $5,
-            closes_at = $6, ends_at = $7, description = $8
+            closes_at = $6, ends_at = $7, cancel_deadline = $8, description = $9
        ${reopen ? ", status = 'open'" : ""}
      where id = $1`,
     [
@@ -169,6 +172,7 @@ export async function updateEventSettings(
       input.capacity,
       input.closesAt,
       input.endsAt,
+      input.cancelDeadline,
       input.description.trim() || null,
     ]
   );
@@ -225,6 +229,8 @@ export type CreateEventInput = {
   closesAt: Date;
   /** 終了日時(任意)。過ぎると自動で完了扱いになる */
   endsAt: Date | null;
+  /** キャンセル受付期限(任意)。当選メール等に自動記載される */
+  cancelDeadline: Date | null;
   /** true なら下書き(作成中)として保存。会員には公開されない */
   draft?: boolean;
 };
@@ -241,8 +247,8 @@ export async function createEvent(
   if (error) return { error };
 
   const rows = await query<{ id: string }>(
-    `insert into events (title, starts_at, venue, public_venue, description, capacity, closes_at, ends_at, status)
-     values ($1, $2, $3, $4, $5, $6, $7, $8, $9) returning id`,
+    `insert into events (title, starts_at, venue, public_venue, description, capacity, closes_at, ends_at, cancel_deadline, status)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) returning id`,
     [
       input.title.trim(),
       input.startsAt,
@@ -252,6 +258,7 @@ export async function createEvent(
       input.capacity,
       input.closesAt,
       input.endsAt,
+      input.cancelDeadline,
       input.draft ? "draft" : "open",
     ]
   );
@@ -272,7 +279,8 @@ export async function updateDraftEvent(
   if (error) return { ok: false, error };
   await query(
     `update events set title = $2, starts_at = $3, venue = $4, public_venue = $5,
-            description = $6, capacity = $7, closes_at = $8, ends_at = $9
+            description = $6, capacity = $7, closes_at = $8, ends_at = $9,
+            cancel_deadline = $10
      where id = $1 and status = 'draft'`,
     [
       id,
@@ -284,6 +292,7 @@ export async function updateDraftEvent(
       input.capacity,
       input.closesAt,
       input.endsAt,
+      input.cancelDeadline,
     ]
   );
   return { ok: true };

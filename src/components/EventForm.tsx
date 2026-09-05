@@ -27,6 +27,7 @@ const FIELDS = [
   "capacity",
   "closesAt",
   "endsAt",
+  "cancelDeadline",
 ] as const;
 
 function fieldElement(
@@ -85,6 +86,7 @@ export function EventForm({
       capacity: Number(v.capacity || NaN),
       closesAt: parseJstLocal(v.closesAt || ""),
       endsAt: v.endsAt ? parseJstLocal(v.endsAt) : null,
+      cancelDeadline: v.cancelDeadline ? parseJstLocal(v.cancelDeadline) : null,
     });
     const errors: EventFieldErrors = {};
     for (const [name, message] of Object.entries(all)) {
@@ -239,6 +241,20 @@ export function EventForm({
           defaultValue={value("closesAt")}
         />
         {msg("closesAt")}
+      </label>
+      <label className={fieldClass("cancelDeadline")}>
+        キャンセル受付期限(任意)
+        <input
+          type="datetime-local"
+          name="cancelDeadline"
+          defaultValue={value("cancelDeadline")}
+        />
+        <span className="muted" style={{ fontWeight: 400, fontSize: "0.82rem" }}>
+          設定すると当選メール・告知文に「キャンセルは◯◯まで」と自動で入り、
+          期限を過ぎると当選者ご本人によるキャンセルができなくなります
+          (運営画面からのキャンセルは引き続き可能)。空欄なら開催まで受け付けます。
+        </span>
+        {msg("cancelDeadline")}
       </label>
       <label className={fieldClass("endsAt")}>
         イベント終了日時(任意。過ぎると自動で完了になります)

@@ -60,6 +60,7 @@ export async function submitEventFormAction(
       "capacity",
       "closesAt",
       "endsAt",
+      "cancelDeadline",
     ].map((k) => [k, String(formData.get(k) ?? "")])
   );
 
@@ -72,6 +73,7 @@ export async function submitEventFormAction(
     capacity: Number(values.capacity || NaN),
     closesAt: parseJstLocal(values.closesAt),
     endsAt: values.endsAt ? parseJstLocal(values.endsAt) : null,
+    cancelDeadline: values.cancelDeadline ? parseJstLocal(values.cancelDeadline) : null,
   };
   const fieldErrors = validateEventFields(
     // イベント設定の変更にはイベント名の欄がない

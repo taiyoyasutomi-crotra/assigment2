@@ -6,7 +6,8 @@ export type EventField =
   | "venue"
   | "capacity"
   | "closesAt"
-  | "endsAt";
+  | "endsAt"
+  | "cancelDeadline";
 export type EventFieldErrors = Partial<Record<EventField, string>>;
 
 /**
@@ -20,6 +21,7 @@ export function validateEventFields(input: {
   capacity: number;
   closesAt: Date;
   endsAt: Date | null;
+  cancelDeadline?: Date | null;
 }): EventFieldErrors {
   const errors: EventFieldErrors = {};
   if (input.title !== undefined && !input.title.trim())
@@ -38,6 +40,12 @@ export function validateEventFields(input: {
       errors.endsAt = "終了日時の形式が不正です";
     else if (!errors.startsAt && input.endsAt <= input.startsAt)
       errors.endsAt = "終了日時は開催日時より後にしてください";
+  }
+  if (input.cancelDeadline != null) {
+    if (isNaN(input.cancelDeadline.getTime()))
+      errors.cancelDeadline = "キャンセル受付期限の形式が不正です";
+    else if (!errors.startsAt && input.cancelDeadline >= input.startsAt)
+      errors.cancelDeadline = "キャンセル受付期限は開催日時より前にしてください";
   }
   return errors;
 }
