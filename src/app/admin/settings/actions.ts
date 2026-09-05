@@ -9,6 +9,17 @@ import { setPassword } from "@/lib/auth/fansCode";
 import { PASSWORD_MIN_LENGTH } from "@/lib/auth/password";
 import { query } from "@/lib/db";
 
+/** 自分のパスワードの設定・変更(「自分のパスワード」タブ) */
+export async function setPasswordAction(formData: FormData) {
+  const me = await requireAdmin();
+  const password = String(formData.get("password") || "");
+  if (password.length < PASSWORD_MIN_LENGTH) {
+    redirect(`/admin/settings?tab=pw_admin&error=weak_password`);
+  }
+  await setPassword(me.id, password);
+  redirect(`/admin/settings?tab=pw_admin&password_updated=1`);
+}
+
 // 日本語サービスのCSVは Shift_JIS(cp932)が多いため、UTF-8 で読めない場合は
 // Shift_JIS として読み直す(メールは ASCII なのでどちらでも取れるが、表示名が化ける)
 function decodeCsv(buf: ArrayBuffer): string {

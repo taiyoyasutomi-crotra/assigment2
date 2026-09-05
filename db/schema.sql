@@ -49,17 +49,23 @@ alter table members
   add constraint fk_members_checkin_event
   foreign key (checkin_event_id) references events(id);
 
+-- 申込はアンケート方式(ログイン不要)。名前・ニックネーム・メールを入力するだけ。
+-- token は申込ごとの推測不能な確認キー: 申込状況ページ(/a/<token>)で
+-- 結果確認・QR表示・キャンセルができる
 create table applications (
   id             uuid primary key default gen_random_uuid(),
   event_id       uuid not null references events(id),
-  member_id      uuid not null references members(id),
-  -- 申込フォームで入力されたメールアドレス。通知の送信先はこれを使う
+  -- 旧会員アカウント連携の名残(現在は使わない。ログインは運営者・受付のみ)
+  member_id      uuid references members(id),
+  applicant_name text not null,  -- お名前(本名。当日受付の照合用)
+  nickname       text,           -- サロンのニックネーム(本人確認の補助)
+  -- 申込フォームで入力されたメールアドレス。当選連絡(メール)の送信先
   email          text not null,
+  token          text not null unique,
   status         text not null default 'applied'
                  check (status in ('applied', 'won', 'waitlisted', 'lost', 'cancelled')),
   waitlist_order int,
-  applied_at     timestamptz not null default now(),
-  unique (event_id, member_id)  -- 1人1枚 TODO(hearing:Q9)
+  applied_at     timestamptz not null default now()
 );
 
 create table tickets (
@@ -72,11 +78,13 @@ create table tickets (
   created_at     timestamptz not null default now()
 );
 
--- 当選・繰上のお知らせ(アプリ内通知)。
--- メールでは送らない(無料枠の制約と運用方針)。email は宛先の記録として残す
+-- 当選・繰上の連絡(メール送信)の記録。
+-- 会員がこのシステムを見に来なくても結果に気づけるよう、当選連絡は
+-- メールで送る(QRチケット添付。2026-09-05 顧客判断)。
 create table notifications (
-  id         uuid primary key default gen_random_uuid(),
-  member_id  uuid not null references members(id),
+  id             uuid primary key default gen_random_uuid(),
+  application_id uuid references applications(id),
+  member_id      uuid references members(id),  -- 旧アプリ内通知の名残(現在は使わない)
   event_id   uuid not null references events(id),
   kind       text not null,  -- selection_won | promotion_won
   email      text not null,

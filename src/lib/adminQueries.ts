@@ -4,6 +4,7 @@ import { query } from "@/lib/db";
 export type AdminApplicationRow = {
   id: string;
   display_name: string;
+  nickname: string | null;
   email: string;
   status: string;
   waitlist_order: number | null;
@@ -17,10 +18,10 @@ export async function listApplicationsForEvent(
   eventId: string
 ): Promise<AdminApplicationRow[]> {
   return query<AdminApplicationRow>(
-    `select a.id, m.display_name, a.email, a.status, a.waitlist_order, a.applied_at,
+    `select a.id, a.applicant_name as display_name, a.nickname, a.email,
+            a.status, a.waitlist_order, a.applied_at,
             t.id as ticket_id, t.checked_in_at, t.revoked_at
      from applications a
-     join members m on m.id = a.member_id
      left join tickets t on t.application_id = a.id
      where a.event_id = $1
      order by
@@ -64,10 +65,11 @@ export async function listNotificationsForEvent(
   eventId: string
 ): Promise<AdminNotificationRow[]> {
   return query<AdminNotificationRow>(
-    `select n.id, m.display_name, n.email, n.kind, n.subject,
+    `select n.id, coalesce(a.applicant_name, '(不明)') as display_name,
+            n.email, n.kind, n.subject,
             n.status, n.error, n.sent_at, n.read_at, n.created_at
      from notifications n
-     join members m on m.id = n.member_id
+     left join applications a on a.id = n.application_id
      where n.event_id = $1
      order by n.created_at desc`,
     [eventId]

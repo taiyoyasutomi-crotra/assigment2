@@ -151,7 +151,7 @@ export default async function AdminEventsPage({
                 <p className="muted">
                   「イベントを作成する」で会員向けの申込ページが即座に公開されます。
                   すぐ公開しない場合は「一時保存」で作成中に保存できます(会員には非公開)。
-                  申込は締切日時まで受け付け、応募が定員を超えた場合は選定時に抽選になります。
+                  申込は締切日時まで受け付け、締切後の「選定を実行」で申込順(先着)に当選が確定します。
                 </p>
                 <EventForm variant="create" />
               </div>

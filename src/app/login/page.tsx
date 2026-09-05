@@ -7,7 +7,6 @@ import {
   loginAction,
   passwordLoginAction,
   requestResetAction,
-  requestSignupAction,
 } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -41,57 +40,22 @@ export default async function LoginPage({
   if (current && roleHome(current) !== "/login") redirect(roleHome(current));
 
   if (mode === "fans_code") {
-    const view = tab === "signup" ? "signup" : tab === "link" ? "link" : "login";
+    const view = tab === "link" ? "link" : "login";
     return (
       <main className="container">
-        <h1>{view === "signup" ? "アカウント作成" : "ログイン"}</h1>
-        <div className="tab-row">
-          <Link href="/login" className={`tab ${view === "login" ? "active" : ""}`}>
-            ログイン
-          </Link>
-          <Link
-            href="/login?tab=signup"
-            className={`tab ${view === "signup" ? "active" : ""}`}
-          >
-            アカウント作成
-          </Link>
-        </div>
+        <h1>運営者・受付担当のログイン</h1>
+        <p className="muted">
+          会員のみなさまはログイン不要です。イベントへの申込は、募集投稿に記載の
+          申込フォームからどうぞ。
+        </p>
         {error && (
           <div className="notice error">{errorMessages[error] ?? "エラーが発生しました"}</div>
         )}
         {sent ? (
           <div className="notice success">
-            {view === "signup"
-              ? "アカウント登録用のリンクをメールで送信しました(有効期限15分)。リンクを開くと登録が完了します。"
-              : "パスワード再設定用のリンクをメールで送信しました(有効期限15分)。リンクを開いて新しいパスワードを設定してください。"}
+            パスワード再設定用のリンクをメールで送信しました(有効期限15分)。
+            リンクを開いて新しいパスワードを設定してください。
             届かない場合は迷惑メールフォルダもご確認ください。
-          </div>
-        ) : view === "signup" ? (
-          <div className="card">
-            <p className="muted">
-              メールアドレス宛に確認リンクをお送りします。リンクを開くと登録完了です。
-            </p>
-            <form action={requestSignupAction} className="stack">
-              <label className="field">
-                表示名
-                <input type="text" name="displayName" required placeholder="ニックネーム" />
-              </label>
-              <label className="field">
-                メールアドレス
-                <input type="email" name="email" required placeholder="you@example.com" />
-              </label>
-              <label className="field">
-                パスワード(8文字以上)
-                <input
-                  type="password"
-                  name="password"
-                  required
-                  minLength={8}
-                  autoComplete="new-password"
-                />
-              </label>
-              <button type="submit">登録用リンクを送る</button>
-            </form>
           </div>
         ) : view === "link" ? (
           <div className="card">
@@ -137,12 +101,16 @@ export default async function LoginPage({
     );
   }
 
-  const candidates = await authProvider.listLoginCandidates();
+  // 会員はログイン不要のため、選択肢は運営者・受付アカウントのみ
+  const candidates = (await authProvider.listLoginCandidates()).filter(
+    (m) => m.role !== "member"
+  );
   return (
     <main className="container">
-      <h1>ログイン</h1>
+      <h1>運営者・受付担当のログイン</h1>
       <p className="muted">
-        モック版のため、会員を選ぶだけでログインできます(本実装ではコミュニティのアカウント連携に差し替え)。
+        会員のみなさまはログイン不要です(申込は申込フォームからどうぞ)。
+        モック版のため、ユーザーを選ぶだけでログインできます。
       </p>
       {error && (
         <div className="notice error">{errorMessages[error] ?? "エラーが発生しました"}</div>

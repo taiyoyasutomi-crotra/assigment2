@@ -10,8 +10,8 @@ import { SidebarNav } from "@/components/SidebarNav";
 import { listAdmins, listAllUsers } from "@/lib/admins";
 import { listAllCheckinStaff } from "@/lib/checkinStaff";
 import { listEvents, isFinished } from "@/lib/events";
-import { setPasswordAction } from "@/app/account/actions";
 import {
+  setPasswordAction,
   importAllowlistAction,
   clearAllowlistAction,
   addAdminAction,
@@ -36,17 +36,20 @@ const errorMessages: Record<string, string> = {
   user_not_found: "対象のユーザーが見つかりませんでした",
 };
 
-// Fans' の会員向け告知に貼る案内文(コードは使わない。名簿照合のみ)
+// Fans' の会員向け告知に貼る案内文(ログイン不要のアンケート方式)
 function fansPostText(): string {
   return [
-    "【イベント申込システムのご案内】",
-    "ファンミーティング等のイベント申込・抽選結果の確認・入場チケットの受け取りは、下記の専用システムから行います。",
+    "【イベント申込のご案内】",
+    "ファンミーティング等のイベント申込は、募集投稿に記載の申込フォームから行います(ログイン不要)。",
     "",
-    "▼ ログインはこちら",
-    `${appUrl()}/login`,
+    "・お名前(本名)・サロンのニックネーム・メールアドレスを入力するだけで申込できます",
+    "・結果は締切後、メールでお知らせします(当選の方には入場QRコード付き)",
+    "・申込完了時に表示される確認ページで、状況の確認とキャンセルができます",
     "",
-    "メールアドレスを入力すると、ログイン用のリンクがメールで届きます。",
-    "※イベントへの申込では、Fans' に登録しているメールアドレスをご入力ください(会員確認のうえ抽選します)",
+    `▼ イベント一覧はこちら`,
+    `${appUrl()}/`,
+    "",
+    "※サロンに登録しているメールアドレスでお申し込みください(会員確認に使います)",
   ].join("\n");
 }
 
@@ -114,7 +117,7 @@ export default async function AdminSettingsPage({
 
       {sp.imported && (
         <div className="notice success">
-          会員名簿を取り込みました({sp.imported}件)。選定(抽選)のときに
+          会員名簿を取り込みました({sp.imported}件)。選定(先着)のときに
           この名簿と照合します。
         </div>
       )}
@@ -336,9 +339,9 @@ export default async function AdminSettingsPage({
                   </strong>
                 </p>
                 <p className="muted" style={{ marginBottom: 0 }}>
-                  ログインは誰でもできます(メール確認リンク)。会員かどうかの確認は
+                  会員の申込にログインは不要です。会員かどうかの確認は
                   <strong>
-                    選定(抽選)のときに、申込のメールアドレスを会員名簿(CSV)と照合
+                    選定(先着)のときに、申込のメールアドレスを会員名簿(CSV)と照合
                   </strong>
                   して行います。名簿に載っていない申込は対象外(落選)になります。
                   {mode !== "fans_code" && (
@@ -353,9 +356,8 @@ export default async function AdminSettingsPage({
               <div className="card">
                 <p>
                   会員のメールアドレス一覧(CSVファイル)を取り込んでください。
-                  選定(抽選)のときにこの名簿と照合し、載っていないメールアドレスの申込は
-                  対象外(落選)になります。
-                  CSVに表示名の列が含まれていれば、初回ログイン時の表示名として自動で使われます。
+                  選定(先着)のときにこの名簿と照合し、載っていないメールアドレスの申込は
+                  対象外(落選)になります(落選連絡メールで本人にもその旨が伝わります)。
                 </p>
                 <p className="muted">
                   取り込むたびに名簿は全て入れ替わります(洗い替え)。新会員の追加・退会者の除外は、

@@ -62,14 +62,6 @@ export function roleHome(member: Member): string {
   return "/";
 }
 
-/** ログイン必須ページ(会員向け)用。未ログインなら /login へ。受付担当は会員画面に入れない */
-export async function requireMember(): Promise<Member> {
-  const member = await getSessionMember();
-  if (!member) redirect("/login");
-  if (member.role === "checkin") redirect(roleHome(member));
-  return member;
-}
-
 /** 管理画面・管理系アクション用。運営者ロール以外は弾く(サーバー側判定) */
 export async function requireAdmin(): Promise<Member> {
   const member = await getSessionMember();

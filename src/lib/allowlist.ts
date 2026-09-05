@@ -33,6 +33,50 @@ export async function allowlistLookup(
   return rows[0] ?? null;
 }
 
+/** 名簿の全メールアドレス(小文字)。打ち間違い候補の検出に使う */
+export async function listAllowlistEmails(): Promise<string[]> {
+  const rows = await query<{ email: string }>("select email from member_allowlist");
+  return rows.map((r) => r.email);
+}
+
+/** 編集距離(レーベンシュタイン)。打ち間違い候補の検出に使う */
+function editDistance(a: string, b: string): number {
+  const dp = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
+  for (let j = 0; j <= b.length; j++) dp[0][j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      dp[i][j] = Math.min(
+        dp[i - 1][j] + 1,
+        dp[i][j - 1] + 1,
+        dp[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)
+      );
+    }
+  }
+  return dp[a.length][b.length];
+}
+
+/**
+ * 名簿外アドレスに対する「もしかして」候補: 編集距離2以内で最も近い
+ * 名簿アドレスを返す(なければ null)。打ち間違いの発見用
+ */
+export function closestAllowlistEmail(
+  email: string,
+  allowEmails: string[]
+): string | null {
+  const target = email.toLowerCase();
+  let best: string | null = null;
+  let bestDist = 3;
+  for (const candidate of allowEmails) {
+    if (Math.abs(candidate.length - target.length) >= bestDist) continue;
+    const d = editDistance(target, candidate);
+    if (d < bestDist) {
+      bestDist = d;
+      best = candidate;
+    }
+  }
+  return best;
+}
+
 /** 複数メールアドレスの名簿照合。名簿に載っているアドレス(小文字)の集合を返す */
 export async function allowlistContains(emails: string[]): Promise<Set<string>> {
   if (emails.length === 0) return new Set();

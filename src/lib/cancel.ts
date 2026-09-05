@@ -1,15 +1,19 @@
 // キャンセルと繰上(F5)。
-// 操作は「当選者の行のキャンセルボタン(1クリック)+ 確認ダイアログ(2重確認)」。
+// 運営者の操作は「当選者の行のキャンセルボタン(1クリック)+ 確認ダイアログ(2重確認)」。
 // 承認後は 1 トランザクションで キャンセル → チケット無効化 → 待機1位の繰上 →
-// チケット発行 → 繰上当選のお知らせ(アプリ内通知)の記録 まで実行する。
+// チケット発行 → 繰上当選の連絡(pending 記録)まで実行し、コミット後に
+// 当選連絡メール(QRチケット添付)を送る。
 // キャンセル1件につき繰上は1件。同じ人が2回繰り上がることはない
 // (繰上時に status が waitlisted → won に変わるため、次回の候補から外れる)。
-// 会員自身によるキャンセル(マイページ)も executeCancel / withdrawApplication を使う。
+// 申込者自身によるキャンセル(申込状況ページ)も executeCancel / withdrawApplication を使う。
 import { withTransaction, query } from "@/lib/db";
 import { PROMOTION_DEADLINE_HOURS } from "@/lib/config";
-import { buildWinMail } from "@/lib/mail";
+import { buildWinMail, buildCancelAckMail } from "@/lib/mail";
 import { issueTicket } from "@/lib/tickets";
-import { recordNotification } from "@/lib/notify/notifications";
+import {
+  recordNotification,
+  processNotificationQueue,
+} from "@/lib/notify/notifications";
 
 function promotionDeadline(startsAt: Date | string): Date {
   return new Date(
@@ -33,12 +37,11 @@ export async function previewCancel(applicationId: string): Promise<CancelPrevie
     status: string;
     event_id: string;
     starts_at: Date;
-    display_name: string;
+    applicant_name: string;
   }>(
-    `select a.id, a.status, a.event_id, e.starts_at, m.display_name
+    `select a.id, a.status, a.event_id, e.starts_at, a.applicant_name
      from applications a
      join events e on e.id = a.event_id
-     join members m on m.id = a.member_id
      where a.id = $1`,
     [applicationId]
   );
@@ -47,18 +50,18 @@ export async function previewCancel(applicationId: string): Promise<CancelPrevie
   if (app.status !== "won")
     return { ok: false, error: "当選者以外はキャンセルできません" };
 
-  const candidates = await query<{ display_name: string }>(
-    `select m.display_name
-     from applications a join members m on m.id = a.member_id
-     where a.event_id = $1 and a.status = 'waitlisted'
-     order by a.waitlist_order asc limit 1`,
+  const candidates = await query<{ applicant_name: string }>(
+    `select applicant_name
+     from applications
+     where event_id = $1 and status = 'waitlisted'
+     order by waitlist_order asc limit 1`,
     [app.event_id]
   );
 
   if (candidates.length === 0) {
     return {
       ok: true,
-      cancelName: app.display_name,
+      cancelName: app.applicant_name,
       promote: null,
       noPromoteReason: "待機リストが空のため、繰上はありません",
     };
@@ -67,15 +70,15 @@ export async function previewCancel(applicationId: string): Promise<CancelPrevie
     // TODO(hearing:Q7) 繰上締切は仮でイベント開始2時間前
     return {
       ok: true,
-      cancelName: app.display_name,
+      cancelName: app.applicant_name,
       promote: null,
       noPromoteReason: `繰上締切(開始${PROMOTION_DEADLINE_HOURS}時間前)を過ぎているため、繰上はありません`,
     };
   }
   return {
     ok: true,
-    cancelName: app.display_name,
-    promote: { name: candidates[0].display_name },
+    cancelName: app.applicant_name,
+    promote: { name: candidates[0].applicant_name },
     noPromoteReason: null,
   };
 }
@@ -92,7 +95,7 @@ export async function executeCancel(applicationId: string): Promise<CancelResult
       [applicationId]
     );
     if (!appHead.rows[0])
-      return { ok: false as const, error: "申込が見つかりません", nid: null };
+      return { ok: false as const, error: "申込が見つかりません" };
     const eventId: string = appHead.rows[0].event_id;
 
     const evRes = await client.query("select * from events where id = $1 for update", [
@@ -101,9 +104,7 @@ export async function executeCancel(applicationId: string): Promise<CancelResult
     const event = evRes.rows[0];
 
     const appRes = await client.query(
-      `select a.*, m.display_name from applications a
-       join members m on m.id = a.member_id
-       where a.id = $1 for update of a`,
+      "select * from applications where id = $1 for update",
       [applicationId]
     );
     const app = appRes.rows[0];
@@ -111,7 +112,6 @@ export async function executeCancel(applicationId: string): Promise<CancelResult
       return {
         ok: false as const,
         error: "当選者以外はキャンセルできません(処理済みの可能性があります)",
-        nid: null,
       };
     }
 
@@ -123,18 +123,27 @@ export async function executeCancel(applicationId: string): Promise<CancelResult
       "update tickets set revoked_at = now() where application_id = $1 and revoked_at is null",
       [app.id]
     );
+    // キャンセル受付の連絡(本人へ)
+    const ackMail = buildCancelAckMail({ event, applicantName: app.applicant_name });
+    await recordNotification(client, {
+      applicationId: app.id,
+      eventId,
+      kind: "cancel_ack",
+      email: app.email,
+      subject: ackMail.subject,
+      body: ackMail.body,
+    });
 
     // 2) 繰上: 待機1位を1件だけ。締切(開始2時間前)を過ぎていたら繰上なし
     let promotedName: string | null = null;
-    let nid: string | null = null;
     if (new Date() <= promotionDeadline(event.starts_at)) {
       const candRes = await client.query(
-        `select a.id, a.member_id, a.email, m.display_name
-         from applications a join members m on m.id = a.member_id
-         where a.event_id = $1 and a.status = 'waitlisted'
-         order by a.waitlist_order asc
+        `select id, email, applicant_name, token
+         from applications
+         where event_id = $1 and status = 'waitlisted'
+         order by waitlist_order asc
          limit 1
-         for update of a`,
+         for update`,
         [eventId]
       );
       const cand = candRes.rows[0];
@@ -143,35 +152,36 @@ export async function executeCancel(applicationId: string): Promise<CancelResult
           "update applications set status = 'won', waitlist_order = null where id = $1",
           [cand.id]
         );
-        const ticket = await issueTicket(client, cand.id);
+        await issueTicket(client, cand.id);
         const mail = buildWinMail({
           event,
-          displayName: cand.display_name,
-          ticketId: ticket.id,
-          kind: "promotion_won",
+          applicantName: cand.applicant_name,
+          applicationToken: cand.token,
         });
         // 送信先は申込フォームで入力されたメールアドレス
-        nid = await recordNotification(client, {
-          memberId: cand.member_id,
+        await recordNotification(client, {
+          applicationId: cand.id,
           eventId,
           kind: "promotion_won",
           email: cand.email,
           subject: mail.subject,
           body: mail.body,
         });
-        promotedName = cand.display_name;
+        promotedName = cand.applicant_name;
       }
     }
 
     return {
       ok: true as const,
-      cancelledName: app.display_name as string,
+      cancelledName: app.applicant_name as string,
       promotedName,
-      nid,
     };
   });
 
   if (result.ok) {
+    // キャンセル受付・繰上当選メールはコミット後にキューで送る
+    // (繰上・キャンセル受付は最優先で送信される。失敗は通知履歴に残る)
+    await processNotificationQueue({ maxSends: 5 });
     return {
       ok: true,
       cancelledName: result.cancelledName,
@@ -184,25 +194,43 @@ export async function executeCancel(applicationId: string): Promise<CancelResult
 export type WithdrawResult = { ok: true } | { ok: false; error: string };
 
 /**
- * 選定前の申込取消(会員自身の操作)。
- * 抽選中(applied)・待機(waitlisted)の申込をキャンセルにする。
+ * 選定前の申込取消(申込者自身の操作。申込状況ページから)。
+ * 結果待ち(applied)・待機(waitlisted)の申込をキャンセルにする。
  * 当選(won)はチケット無効化と繰上が必要なため executeCancel を使う。
+ * キャンセル受付の連絡メールを本人に送る。
  */
-export async function withdrawApplication(
-  applicationId: string,
-  memberId: string
-): Promise<WithdrawResult> {
-  const rows = await query<{ id: string }>(
-    `update applications set status = 'cancelled', waitlist_order = null
-     where id = $1 and member_id = $2 and status in ('applied', 'waitlisted')
-     returning id`,
-    [applicationId, memberId]
-  );
-  if (!rows[0]) {
-    return {
-      ok: false,
-      error: "この申込は取り消せません(処理済みの可能性があります)",
-    };
-  }
-  return { ok: true };
+export async function withdrawApplication(applicationId: string): Promise<WithdrawResult> {
+  const result = await withTransaction(async (client) => {
+    const rows = await client.query(
+      `update applications set status = 'cancelled', waitlist_order = null
+       where id = $1 and status in ('applied', 'waitlisted')
+       returning id, event_id, email, applicant_name`,
+      [applicationId]
+    );
+    const app = rows.rows[0];
+    if (!app) {
+      return {
+        ok: false as const,
+        error: "この申込は取り消せません(処理済みの可能性があります)",
+      };
+    }
+    const evRes = await client.query("select title from events where id = $1", [
+      app.event_id,
+    ]);
+    const ackMail = buildCancelAckMail({
+      event: evRes.rows[0],
+      applicantName: app.applicant_name,
+    });
+    await recordNotification(client, {
+      applicationId: app.id,
+      eventId: app.event_id,
+      kind: "cancel_ack",
+      email: app.email,
+      subject: ackMail.subject,
+      body: ackMail.body,
+    });
+    return { ok: true as const };
+  });
+  if (result.ok) await processNotificationQueue({ maxSends: 3 });
+  return result;
 }

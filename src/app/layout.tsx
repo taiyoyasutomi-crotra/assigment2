@@ -2,12 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import "./globals.css";
 import { getSessionMember, roleHome } from "@/lib/auth/session";
-import { countUnreadNotifications } from "@/lib/notify/notifications";
 import { logoutAction } from "@/app/login/actions";
 
 export const metadata: Metadata = {
   title: "ファンミーティング参加受付",
-  description: "コミュニティイベントの申込・抽選・QR受付システム(モック)",
+  description: "コミュニティイベントの申込・先着受付・QR受付システム(モック)",
 };
 
 export default async function RootLayout({
@@ -16,9 +15,6 @@ export default async function RootLayout({
   children: React.ReactNode;
 }) {
   const member = await getSessionMember();
-  // 会員向け: 未読のお知らせ数(当選・繰上のアプリ内通知)をナビにバッジ表示する
-  const unread =
-    member?.role === "member" ? await countUnreadNotifications(member.id) : 0;
   return (
     <html lang="ja">
       <body>
@@ -34,17 +30,6 @@ export default async function RootLayout({
               ) : (
                 <>
                   <Link href="/">ホーム</Link>
-                  {/* 会員: 申込状況・お知らせ・アカウント(運営者は申込不可のため出さない) */}
-                  {member?.role === "member" && <Link href="/my">申込状況</Link>}
-                  {member?.role === "member" && (
-                    <Link href="/notifications">
-                      お知らせ
-                      {unread > 0 && <span className="nav-badge">{unread}</span>}
-                    </Link>
-                  )}
-                  {member?.role === "member" && (
-                    <Link href="/account">アカウント</Link>
-                  )}
                   {/* 運営者: イベント(一覧・作成)と管理(運営者・名簿・自分のパスワード) */}
                   {member?.role === "admin" && (
                     <Link href="/admin/events">イベント</Link>
@@ -66,7 +51,8 @@ export default async function RootLayout({
                   </form>
                 </>
               ) : (
-                <Link href="/login">ログイン</Link>
+                // 会員はログイン不要(申込はフォーム入力のみ)。ログインは運営・受付用
+                <Link href="/login">運営ログイン</Link>
               )}
             </div>
           </div>

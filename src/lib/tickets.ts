@@ -16,37 +16,6 @@ export async function issueTicket(
   return { id: res.rows[0].id, token };
 }
 
-export type TicketView = {
-  id: string;
-  token: string;
-  checked_in_at: Date | null;
-  revoked_at: Date | null;
-  display_name: string;
-  title: string;
-  starts_at: Date;
-  venue: string;
-  application_status: string;
-};
-
-/** 本人のチケットのみ返す(他人のチケット URL を叩いても見えない) */
-export async function getMyTicket(
-  ticketId: string,
-  memberId: string
-): Promise<TicketView | null> {
-  const rows = await query<TicketView>(
-    `select t.id, t.token, t.checked_in_at, t.revoked_at,
-            m.display_name, e.title, e.starts_at, e.venue,
-            a.status as application_status
-     from tickets t
-     join applications a on a.id = t.application_id
-     join members m on m.id = a.member_id
-     join events e on e.id = a.event_id
-     where t.id = $1 and a.member_id = $2`,
-    [ticketId, memberId]
-  );
-  return rows[0] ?? null;
-}
-
 export type CheckinResult =
   | { ok: true; displayName: string }
   | {
@@ -71,10 +40,9 @@ export async function checkinByToken(
     display_name: string;
   }>(
     `select t.id, t.checked_in_at, t.revoked_at, a.event_id,
-            a.status as app_status, m.display_name
+            a.status as app_status, a.applicant_name as display_name
      from tickets t
      join applications a on a.id = t.application_id
-     join members m on m.id = a.member_id
      where t.token = $1`,
     [token]
   );
@@ -129,12 +97,12 @@ export type WinnerRow = {
 /** 受付ボード用: 当選者の全一覧(入場状態つき) */
 export async function listWinners(eventId: string): Promise<WinnerRow[]> {
   return query<WinnerRow>(
-    `select a.id as application_id, m.display_name, t.token, t.checked_in_at, t.revoked_at
+    `select a.id as application_id, a.applicant_name as display_name,
+            t.token, t.checked_in_at, t.revoked_at
      from applications a
-     join members m on m.id = a.member_id
      left join tickets t on t.application_id = a.id
      where a.event_id = $1 and a.status = 'won'
-     order by m.display_name`,
+     order by a.applicant_name`,
     [eventId]
   );
 }

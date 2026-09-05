@@ -27,6 +27,7 @@ import { parseJstLocal } from "@/lib/format";
 import { effectiveStatus, isFinished } from "@/lib/events";
 import { approveApplicationEmail, deleteApplication } from "@/lib/applications";
 import { runSelection } from "@/lib/selection";
+import { processNotificationQueue } from "@/lib/notify/notifications";
 import { previewCancel, executeCancel, type CancelPreview, type CancelResult } from "@/lib/cancel";
 
 /**
@@ -157,6 +158,19 @@ export async function reopenEventAction(formData: FormData) {
     [eventId, closesAt]
   );
   redirect(`/admin/events/${eventId}?reopened=1`);
+}
+
+/**
+ * 送信待ちメールの手動送信。無料枠の1日予算の残りの範囲で優先度順に送る
+ * (日次の Cron を待たずに流したいとき用)
+ */
+export async function processQueueAction(formData: FormData) {
+  await requireAdmin();
+  const eventId = String(formData.get("eventId") || "");
+  const r = await processNotificationQueue();
+  redirect(
+    `/admin/events/${eventId}?queue_sent=${r.sent}&queue_failed=${r.failed}&queue_remaining=${r.remaining}`
+  );
 }
 
 /** 手動でイベントを完了にする(一覧の「終了したイベント」へ移す) */

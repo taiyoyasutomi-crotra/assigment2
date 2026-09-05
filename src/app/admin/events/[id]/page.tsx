@@ -7,8 +7,17 @@ import {
   adminStatusLabel,
   isFinished,
 } from "@/lib/events";
-import { allowlistSummary, allowlistContains } from "@/lib/allowlist";
+import {
+  allowlistSummary,
+  allowlistContains,
+  listAllowlistEmails,
+  closestAllowlistEmail,
+} from "@/lib/allowlist";
 import { listApplicationsForEvent, listNotificationsForEvent } from "@/lib/adminQueries";
+import {
+  countPendingNotifications,
+  KIND_LABELS,
+} from "@/lib/notify/notifications";
 import { buildAnnouncement } from "@/lib/announce";
 import { defaultWinMessage } from "@/lib/mail";
 import { formatJst, toJstLocalInput } from "@/lib/format";
@@ -23,6 +32,7 @@ import {
   publishEventAction,
   approveApplicationAction,
   deleteApplicationAction,
+  processQueueAction,
 } from "@/app/admin/actions";
 import { EventForm } from "@/components/EventForm";
 import { TemplateEditor } from "@/components/TemplateEditor";
@@ -30,6 +40,9 @@ import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
 import { CancelButton } from "@/components/CancelButton";
 
 export const dynamic = "force-dynamic";
+// このページのアクション(選定・手動送信)はメール送信キューを処理するため、
+// 毎秒2リクエスト制限に合わせた送信間隔の分、実行時間を長めに取る
+export const maxDuration = 60;
 
 const appStatusLabels: Record<string, { label: string; badge: string }> = {
   applied: { label: "申込済み", badge: "applied" },
@@ -57,6 +70,9 @@ export default async function AdminEventDetailPage({
     approved?: string;
     app_deleted?: string;
     template_saved?: string;
+    queue_sent?: string;
+    queue_failed?: string;
+    queue_remaining?: string;
     error?: string;
   }>;
 }) {
@@ -68,6 +84,7 @@ export default async function AdminEventDetailPage({
   if (!event) notFound();
   const applications = await listApplicationsForEvent(id);
   const notifications = await listNotificationsForEvent(id);
+  const pendingMails = await countPendingNotifications();
 
   // 申込チェック(GUI表示用): 名簿外のアドレスと、同一アドレスの重複申込を可視化する。
   // キャンセル済みは対象外。名簿が未取込のときは名簿照合をしない(rosterSet=null)
@@ -87,6 +104,11 @@ export default async function AdminEventDetailPage({
     rosterSet !== null && !rosterSet.has(email.toLowerCase());
   const offRosterCount = activeApps.filter((a) => isOffRoster(a.email)).length;
   const dupGroupCount = [...emailCounts.values()].filter((c) => c > 1).length;
+
+  // 名簿外アドレスの打ち間違い対策: 名簿の近いアドレスを「もしかして」として出す
+  const allowEmails = offRosterCount > 0 ? await listAllowlistEmails() : [];
+  const suggestFor = (email: string) =>
+    isOffRoster(email) ? closestAllowlistEmail(email, allowEmails) : null;
 
   const eff = effectiveStatus(event);
   const finished = isFinished(event);
@@ -205,10 +227,36 @@ export default async function AdminEventDetailPage({
         <div className="notice success">
           選定を実行しました(当選 {sp.selected} 名 / 待機 {sp.waitlisted ?? 0} 名
           {Number(sp.excluded) > 0 && <> / 名簿外のため対象外・落選 {sp.excluded} 名</>}
-          )。当選者のマイページに「お知らせ」を配信しました(メールは送りません)。
+          )。結果連絡メール(当選=QR付き・待機・落選)を送信キューに登録しました。
+          無料枠(1日の送信予算)の範囲で優先度順に自動送信されます。
+          送信状況は下の通知履歴で確認できます。
+        </div>
+      )}
+      {sp.queue_sent != null && (
+        <div className="notice success">
+          送信待ちのメールを処理しました(送信 {sp.queue_sent} 通
+          {Number(sp.queue_failed) > 0 && <> / 失敗 {sp.queue_failed} 通</>}
+          {Number(sp.queue_remaining) > 0 && (
+            <> / 残り {sp.queue_remaining} 通は明日以降に自動送信</>
+          )}
+          )。
         </div>
       )}
       {sp.error && <div className="notice error">{sp.error}</div>}
+
+      {pendingMails > 0 && (
+        <div className="notice info">
+          送信待ちのメールが {pendingMails} 通あります。無料枠(1日の送信予算・既定90通)の
+          範囲で、繰上・キャンセル受付 → 当選 → 待機 → 落選の優先度順に送信され、
+          残りは毎日自動で送信されます。
+          <form action={processQueueAction} style={{ marginTop: 8 }}>
+            <input type="hidden" name="eventId" value={event.id} />
+            <button type="submit" className="small">
+              送信待ちをいま送信する(本日の残り予算まで)
+            </button>
+          </form>
+        </div>
+      )}
 
       <div className="card">
         <div className="stat-row">
@@ -247,7 +295,7 @@ export default async function AdminEventDetailPage({
               <button type="submit">
                 選定を実行(
                 {event.application_count > event.capacity
-                  ? `抽選で${event.capacity}名`
+                  ? `先着順で${event.capacity}名`
                   : "定員以内・全員当選"})
               </button>
             </form>
@@ -384,11 +432,11 @@ export default async function AdminEventDetailPage({
           <h2>当選連絡の文面</h2>
           <div className="card">
             <p className="muted">
-              選定・繰上の当選者に、マイページの「お知らせ」で届く文面です(メールは送りません)。
+              選定・繰上の当選者に届く当選連絡メールの文面です(入場QRコードを添付して送ります)。
               「選定を実行」の前に編集・保存してください。繰上当選の連絡にも同じ文面が使われます。
-              <code>{"{お名前}"}</code> と <code>{"{チケットURL}"}</code>{" "}
-              は当選者ごとに実際の名前・チケットのURLへ自動で置き換わるので、
-              この2つはこのまま残してください。
+              <code>{"{お名前}"}</code> と <code>{"{確認URL}"}</code>{" "}
+              は当選者ごとに実際の名前・申込状況ページ(キャンセル用)のURLへ
+              自動で置き換わるので、この2つはこのまま残してください。
             </p>
             <TemplateEditor
               eventId={event.id}
@@ -405,7 +453,8 @@ export default async function AdminEventDetailPage({
       {offRosterCount > 0 && (
         <div className="notice error">
           会員名簿に載っていないメールアドレスの申込が {offRosterCount} 件あります。
-          申込数に数えず、選定(抽選)でも対象外・落選になります。
+          申込数に数えず、選定(先着)でも対象外・落選になります。
+          メールアドレスの打ち間違いの可能性がある場合は「もしかして」に候補を表示します。
           会員と確認できた場合は「承認」、そうでなければ「削除」で整理してください。
         </div>
       )}
@@ -426,7 +475,8 @@ export default async function AdminEventDetailPage({
         <table className="data">
           <thead>
             <tr>
-              <th>表示名</th>
+              <th>お名前</th>
+              <th>ニックネーム</th>
               <th>連絡先メール</th>
               <th>申込日時</th>
               <th>状態</th>
@@ -443,6 +493,7 @@ export default async function AdminEventDetailPage({
               return (
                 <tr key={a.id}>
                   <td>{a.display_name}</td>
+                  <td>{a.nickname ?? <span className="muted">—</span>}</td>
                   <td>
                     {a.email}
                     {a.status !== "cancelled" && isOffRoster(a.email) && (
@@ -455,6 +506,15 @@ export default async function AdminEventDetailPage({
                       <>
                         {" "}
                         <span className="badge waitlisted">重複</span>
+                      </>
+                    )}
+                    {a.status !== "cancelled" && suggestFor(a.email) && (
+                      <>
+                        <br />
+                        <span className="muted">
+                          もしかして: {suggestFor(a.email)}(名簿に近いアドレスがあります。
+                          打ち間違いの可能性)
+                        </span>
                       </>
                     )}
                   </td>
@@ -517,7 +577,7 @@ export default async function AdminEventDetailPage({
         </div>
       )}
 
-      <h2>通知履歴(アプリ内のお知らせ)</h2>
+      <h2>通知履歴(当選連絡メール)</h2>
       {notifications.length === 0 ? (
         <p className="muted">通知はまだありません。</p>
       ) : (
@@ -541,17 +601,31 @@ export default async function AdminEventDetailPage({
                   <br />
                   <span className="muted">{n.email}</span>
                 </td>
-                <td>{n.kind === "promotion_won" ? "繰上当選" : "当選"}</td>
+                <td>{KIND_LABELS[n.kind] ?? n.kind}</td>
                 <td>{n.subject}</td>
                 <td>
-                  {n.read_at ? (
+                  {n.status === "sent" ? (
                     <>
-                      <span className="badge won">既読</span>
-                      <br />
-                      <span className="muted">{formatJst(n.read_at)}</span>
+                      <span className="badge won">送信済み</span>
+                      {n.sent_at && (
+                        <>
+                          <br />
+                          <span className="muted">{formatJst(n.sent_at)}</span>
+                        </>
+                      )}
+                    </>
+                  ) : n.status === "failed" ? (
+                    <>
+                      <span className="badge lost">送信失敗</span>
+                      {n.error && (
+                        <>
+                          <br />
+                          <span className="muted">{n.error}</span>
+                        </>
+                      )}
                     </>
                   ) : (
-                    <span className="badge neutral">未読</span>
+                    <span className="badge neutral">送信中</span>
                   )}
                 </td>
               </tr>
