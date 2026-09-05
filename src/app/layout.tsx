@@ -40,21 +40,18 @@ export default async function RootLayout({
                 </>
               )}
             </nav>
-            <div className="user">
-              {member ? (
-                <>
-                  <span>{member.display_name}</span>
-                  <form action={logoutAction}>
-                    <button type="submit" className="secondary small">
-                      ログアウト
-                    </button>
-                  </form>
-                </>
-              ) : (
-                // 会員はログイン不要(申込はフォーム入力のみ)。ログインは運営・受付用
-                <Link href="/login">運営ログイン</Link>
-              )}
-            </div>
+            {/* 会員はログイン不要のため、未ログイン時はログイン導線を出さない
+                (運営者・受付担当は /login に直接アクセスする) */}
+            {member && (
+              <div className="user">
+                <span>{member.display_name}</span>
+                <form action={logoutAction}>
+                  <button type="submit" className="secondary small">
+                    ログアウト
+                  </button>
+                </form>
+              </div>
+            )}
           </div>
         </header>
         {children}
