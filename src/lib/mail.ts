@@ -54,28 +54,69 @@ function fillTags(template: string, values: Record<string, string>): string {
   return out;
 }
 
-/** 待機(繰上待ち)連絡。全員に結果を届ける方針のため、待機者にもメールする */
-export function buildWaitlistMail(input: {
-  event: Pick<EventRow, "title">;
+/**
+ * 申込受付の連絡。申込直後に送り、申込状況・キャンセル用のURLを届ける
+ * (選定前でもこのリンクからキャンセルできる)
+ */
+export function buildApplyAckMail(input: {
+  event: Pick<
+    EventRow,
+    "title" | "starts_at" | "venue" | "public_venue" | "closes_at"
+  >;
   applicantName: string;
-  waitlistOrder: number;
   applicationToken: string;
 }): { subject: string; body: string } {
-  const { event, applicantName, waitlistOrder, applicationToken } = input;
+  const { event, applicantName, applicationToken } = input;
   return {
-    subject: `【繰上待ちのご案内】${event.title}`,
+    subject: `【申込受付🌙】${event.title}`,
     body: [
       `${applicantName}さん、こんにちは!サロン運営です🌙`,
-      `「${event.title}」へのお申込みありがとうございました!`,
+      `「${event.title}」へのお申込みを受け付けました!`,
       "",
-      `先着順の結果、定員に達したため、現在は繰上待ち(待機${waitlistOrder}位)でのご案内です。`,
-      "キャンセルが出た場合は申込順に自動で繰り上がり、当選のご連絡メール",
-      "(入場QRコード付き)をお送りします。",
+      `【日時】${formatJst(event.starts_at)}`,
+      // 会場の詳細は当選者にだけ知らせる(公開用の表記を使う)
+      `【場所】${event.public_venue?.trim() || event.venue}`,
+      `【申込締切】${formatJst(event.closes_at)}`,
+      "",
+      "先着順のため、締切後に申込順で結果が確定し、メールでご連絡します",
+      "(当選の方には入場QRコード付き)。",
       "",
       "【申込状況の確認・キャンセルはこちら】",
       `${appUrl()}/a/${applicationToken}`,
       "",
       "参加できなくなった場合は、上記ページからキャンセルをお願いします🙏",
+      "※このご連絡に心当たりがない場合はお手数ですが破棄してください。",
+    ].join("\n"),
+  };
+}
+
+/**
+ * 落選連絡(繰上待ち)。定員あふれの人に送る。待機順位は記載しない
+ * (2026-09-05 顧客要望)。繰上の可能性が低い「待機番号が後ろの人」から
+ * 順に送り、送信前に繰り上がった場合はこの連絡を取りやめて当選連絡を送る
+ */
+export function buildWaitlistMail(input: {
+  event: Pick<EventRow, "title">;
+  applicantName: string;
+  applicationToken: string;
+}): { subject: string; body: string } {
+  const { event, applicantName, applicationToken } = input;
+  return {
+    subject: `【選考結果のご連絡】${event.title}`,
+    body: [
+      `${applicantName}さん、こんにちは!サロン運営です🌙`,
+      `「${event.title}」へのたくさんのお申込みありがとうございました!`,
+      "",
+      "誠に残念ながら、先着順の結果、定員に達したため今回はご参加いただけませんでした😢",
+      "",
+      "キャンセルが出た場合は、申込順に繰り上げて当選のご連絡をお送りすることがあります。",
+      "その場合は改めてメールでご連絡します(入場QRコード付き)。",
+      "",
+      "【申込状況の確認はこちら】",
+      `${appUrl()}/a/${applicationToken}`,
+      "(繰上を辞退したい場合は、上記ページからキャンセルできます)",
+      "",
+      "次のイベントでお会いできることを楽しみにしています🌙",
     ].join("\n"),
   };
 }

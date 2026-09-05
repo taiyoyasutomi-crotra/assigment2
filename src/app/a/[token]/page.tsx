@@ -102,8 +102,9 @@ export default async function ApplicationStatusPage({
       )}
       {app.status === "waitlisted" && (
         <div className="notice info">
-          現在、繰上待ち{app.waitlist_order != null && <>(待機{app.waitlist_order}位)</>}
-          です。キャンセルが出た場合、申込順に繰り上げて当選のご連絡をメールでお送りします。
+          先着順の結果、定員に達したため、今回はご参加いただけませんでした。
+          キャンセルが出た場合は、申込順に繰り上げて当選のご連絡をメールでお送りすることがあります。
+          繰上を辞退したい場合は、下の「参加をキャンセルする」からお手続きください。
         </div>
       )}
       {app.status === "lost" && (

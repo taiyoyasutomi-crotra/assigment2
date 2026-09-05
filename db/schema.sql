@@ -97,6 +97,7 @@ create table notifications (
   subject    text not null,
   body       text not null,
   status     text not null default 'sent' check (status in ('pending', 'sent', 'failed')),
+  provider   text,  -- 送信に使ったプロバイダ(resend / brevo / console)
   error      text,
   sent_at    timestamptz,
   read_at    timestamptz,  -- 会員がお知らせを開いた日時(null = 未読)

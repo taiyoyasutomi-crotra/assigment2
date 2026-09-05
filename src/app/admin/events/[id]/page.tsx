@@ -250,9 +250,10 @@ export default async function AdminEventDetailPage({
 
       {pendingMails > 0 && (
         <div className="notice info">
-          送信待ちのメールが {pendingMails} 通あります。無料枠(1日の送信予算・既定90通)の
-          範囲で、繰上・キャンセル受付 → 当選 → 待機 → 落選の優先度順に送信され、
-          残りは毎日自動で送信されます。
+          送信待ちのメールが {pendingMails} 通あります。無料枠(プロバイダごとの1日予算)の
+          範囲で、申込受付・繰上・キャンセル受付 → 当選 →
+          落選連絡(繰上待ち。繰上の可能性が低い後ろの方から) → 落選(名簿外)
+          の優先度順に送信され、残りは毎日自動で送信されます。
           <form action={processQueueAction} style={{ marginTop: 8 }}>
             <input type="hidden" name="eventId" value={event.id} />
             <button type="submit" className="small">

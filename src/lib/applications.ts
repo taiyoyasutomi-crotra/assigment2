@@ -8,6 +8,11 @@
 import { randomBytes } from "node:crypto";
 import { withTransaction } from "@/lib/db";
 import { query } from "@/lib/db";
+import { buildApplyAckMail } from "@/lib/mail";
+import {
+  recordNotification,
+  processNotificationQueue,
+} from "@/lib/notify/notifications";
 
 export type ApplyResult =
   | { ok: true; token: string }
@@ -60,12 +65,32 @@ export async function applyToEvent(
     }
 
     const token = randomBytes(24).toString("base64url");
-    await client.query(
+    const inserted = await client.query(
       `insert into applications (event_id, applicant_name, nickname, email, token)
-       values ($1, $2, $3, $4, $5)`,
+       values ($1, $2, $3, $4, $5) returning id`,
       [eventId, name, nickname || null, email, token]
     );
+
+    // 申込受付メール: 申込状況・キャンセル用のURLを本人に届ける
+    // (選定前でもメールのリンクからキャンセルできるようにする)
+    const ackMail = buildApplyAckMail({
+      event,
+      applicantName: name,
+      applicationToken: token,
+    });
+    await recordNotification(client, {
+      applicationId: inserted.rows[0].id as string,
+      eventId,
+      kind: "apply_ack",
+      email,
+      subject: ackMail.subject,
+      body: ackMail.body,
+    });
     return { ok: true as const, token };
+  }).then(async (result) => {
+    // 申込受付メールはコミット後にキューで送る(最優先で送信される)
+    if (result.ok) await processNotificationQueue({ maxSends: 2 });
+    return result;
   });
 }
 

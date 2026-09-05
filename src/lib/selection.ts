@@ -117,7 +117,6 @@ export async function runSelection(eventId: string): Promise<SelectionResult> {
       const mail = buildWaitlistMail({
         event,
         applicantName: app.applicant_name,
-        waitlistOrder: i + 1,
         applicationToken: app.token,
       });
       await recordNotification(client, {

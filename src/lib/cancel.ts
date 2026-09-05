@@ -152,6 +152,13 @@ export async function executeCancel(applicationId: string): Promise<CancelResult
           "update applications set status = 'won', waitlist_order = null where id = $1",
           [cand.id]
         );
+        // まだ送っていない落選連絡(待機)があれば取りやめ、当選連絡だけを届ける
+        // (落選連絡は待機の後ろの人から送るため、前の方は未送信のことが多い)
+        await client.query(
+          `delete from notifications
+           where application_id = $1 and kind = 'waitlist_info' and status = 'pending'`,
+          [cand.id]
+        );
         await issueTicket(client, cand.id);
         const mail = buildWinMail({
           event,
