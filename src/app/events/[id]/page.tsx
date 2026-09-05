@@ -2,7 +2,12 @@
 // Googleフォームと同じく、リンクを開いて入力するだけで申込できる。
 // 結果は当選者にメールで連絡し、申込完了時に発行される確認ページでも確認できる。
 import { notFound } from "next/navigation";
-import { getEvent, effectiveStatus, memberStatusLabel } from "@/lib/events";
+import {
+  getEvent,
+  effectiveStatus,
+  memberStatusLabel,
+  publicVenueLabel,
+} from "@/lib/events";
 import { formatJst } from "@/lib/format";
 import { ApplyForm } from "@/components/ApplyForm";
 
@@ -30,7 +35,7 @@ export default async function EventDetailPage({
         <p>
           日時: {formatJst(event.starts_at)}
           <br />
-          会場: {event.venue}
+          場所: {publicVenueLabel(event)}
           <br />
           定員: {event.capacity}名(先着順。定員を超えた分は申込順の繰上待ちになります)
           <br />

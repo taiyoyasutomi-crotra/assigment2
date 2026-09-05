@@ -166,6 +166,7 @@ export default async function AdminEventDetailPage({
               title: event.title,
               startsAt: toJstLocalInput(event.starts_at),
               venue: event.venue,
+              publicVenue: event.public_venue ?? "",
               description: event.description ?? "",
               capacity: String(event.capacity),
               closesAt: toJstLocalInput(event.closes_at),
@@ -271,8 +272,9 @@ export default async function AdminEventDetailPage({
         </div>
         <p className="muted">
           日時: {formatJst(event.starts_at)}
-          {event.ends_at && <> 〜 {formatJst(event.ends_at)}</>} / 会場: {event.venue} /
-          申込締切: {formatJst(event.closes_at)}
+          {event.ends_at && <> 〜 {formatJst(event.ends_at)}</>} / 会場: {event.venue}
+          {event.public_venue && <>(公開表記: {event.public_venue}。会場は当選者のみに表示)</>}{" "}
+          / 申込締切: {formatJst(event.closes_at)}
         </p>
         {event.description && (
           <p style={{ whiteSpace: "pre-wrap" }}>{event.description}</p>
@@ -376,6 +378,7 @@ export default async function AdminEventDetailPage({
               initial={{
                 startsAt: toJstLocalInput(event.starts_at),
                 venue: event.venue,
+                publicVenue: event.public_venue ?? "",
                 description: event.description ?? "",
                 capacity: String(event.capacity),
                 closesAt: toJstLocalInput(event.closes_at),

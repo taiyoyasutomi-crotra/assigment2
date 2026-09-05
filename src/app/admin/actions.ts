@@ -51,15 +51,23 @@ export async function submitEventFormAction(
   const variant = String(formData.get("variant") || "");
   const eventId = String(formData.get("eventId") || "");
   const values = Object.fromEntries(
-    ["title", "startsAt", "venue", "description", "capacity", "closesAt", "endsAt"].map(
-      (k) => [k, String(formData.get(k) ?? "")]
-    )
+    [
+      "title",
+      "startsAt",
+      "venue",
+      "publicVenue",
+      "description",
+      "capacity",
+      "closesAt",
+      "endsAt",
+    ].map((k) => [k, String(formData.get(k) ?? "")])
   );
 
   const input = {
     title: values.title,
     startsAt: parseJstLocal(values.startsAt),
     venue: values.venue,
+    publicVenue: values.publicVenue,
     description: values.description,
     capacity: Number(values.capacity || NaN),
     closesAt: parseJstLocal(values.closesAt),

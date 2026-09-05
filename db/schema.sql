@@ -30,6 +30,9 @@ create table events (
   title       text not null,
   starts_at   timestamptz not null,
   venue       text not null,
+  -- 公開用の場所表記(例:「都内某所」)。会場の詳細は当選者にだけ知らせる運用のため、
+  -- 告知文・申込ページにはこちらを出す。null = venue をそのまま公開
+  public_venue text,
   description text,  -- イベント概要(任意)。申込ページ・告知文に表示
   capacity    int not null check (capacity > 0),
   closes_at   timestamptz not null,

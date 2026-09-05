@@ -6,6 +6,8 @@ export type EventRow = {
   title: string;
   starts_at: Date;
   venue: string;
+  /** 公開用の場所表記(例:「都内某所」)。null = venue をそのまま公開 */
+  public_venue: string | null;
   description: string | null;
   capacity: number;
   closes_at: Date;
@@ -40,6 +42,14 @@ export function isFinished(e: EventRow): boolean {
   if (e.status === "finished") return true;
   if (e.status === "draft") return false;
   return e.ends_at != null && new Date(e.ends_at) < new Date();
+}
+
+/**
+ * 会員向けに公開する場所表記。会場の詳細は当選者にだけ知らせる運用のため、
+ * 公開用表記(public_venue)があればそちらを出す(告知文・申込ページ用)
+ */
+export function publicVenueLabel(e: Pick<EventRow, "venue" | "public_venue">): string {
+  return e.public_venue?.trim() || e.venue;
 }
 
 /** 会員向けの状態表示: 募集中 / 締切 / 終了 */
@@ -130,6 +140,7 @@ export async function updateEventSettings(
   input: {
     startsAt: Date;
     venue: string;
+    publicVenue: string;
     capacity: number;
     closesAt: Date;
     endsAt: Date | null;
@@ -146,14 +157,15 @@ export async function updateEventSettings(
   // 締切を未来に延ばした場合は募集中に戻す(手動締切していても延長の意図を優先)
   const reopen = input.closesAt > new Date() && e.status === "closed";
   await query(
-    `update events set starts_at = $2, venue = $3, capacity = $4, closes_at = $5,
-            ends_at = $6, description = $7
+    `update events set starts_at = $2, venue = $3, public_venue = $4, capacity = $5,
+            closes_at = $6, ends_at = $7, description = $8
        ${reopen ? ", status = 'open'" : ""}
      where id = $1`,
     [
       id,
       input.startsAt,
       input.venue.trim(),
+      input.publicVenue.trim() || null,
       input.capacity,
       input.closesAt,
       input.endsAt,
@@ -206,6 +218,8 @@ export type CreateEventInput = {
   title: string;
   startsAt: Date;
   venue: string;
+  /** 公開用の場所表記(任意。空なら会場をそのまま公開) */
+  publicVenue: string;
   description: string;
   capacity: number;
   closesAt: Date;
@@ -227,12 +241,13 @@ export async function createEvent(
   if (error) return { error };
 
   const rows = await query<{ id: string }>(
-    `insert into events (title, starts_at, venue, description, capacity, closes_at, ends_at, status)
-     values ($1, $2, $3, $4, $5, $6, $7, $8) returning id`,
+    `insert into events (title, starts_at, venue, public_venue, description, capacity, closes_at, ends_at, status)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9) returning id`,
     [
       input.title.trim(),
       input.startsAt,
       input.venue.trim(),
+      input.publicVenue.trim() || null,
       input.description.trim() || null,
       input.capacity,
       input.closesAt,
@@ -256,14 +271,15 @@ export async function updateDraftEvent(
   const error = validateEventInput(input);
   if (error) return { ok: false, error };
   await query(
-    `update events set title = $2, starts_at = $3, venue = $4, description = $5,
-            capacity = $6, closes_at = $7, ends_at = $8
+    `update events set title = $2, starts_at = $3, venue = $4, public_venue = $5,
+            description = $6, capacity = $7, closes_at = $8, ends_at = $9
      where id = $1 and status = 'draft'`,
     [
       id,
       input.title.trim(),
       input.startsAt,
       input.venue.trim(),
+      input.publicVenue.trim() || null,
       input.description.trim() || null,
       input.capacity,
       input.closesAt,

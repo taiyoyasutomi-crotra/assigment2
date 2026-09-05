@@ -4,6 +4,7 @@
 import { notFound } from "next/navigation";
 import QRCode from "qrcode";
 import { getApplicationByToken } from "@/lib/applications";
+import { publicVenueLabel } from "@/lib/events";
 import { formatJst } from "@/lib/format";
 import { appUrl } from "@/lib/config";
 import { CopyButton } from "@/components/CopyButton";
@@ -72,7 +73,8 @@ export default async function ApplicationStatusPage({
           <br />
           日時: {formatJst(app.starts_at)}
           <br />
-          会場: {app.venue}
+          {/* 会場の詳細は当選者にだけ表示する(それ以外は公開用の表記) */}
+          場所: {app.status === "won" ? app.venue : publicVenueLabel(app)}
         </p>
         <p className="muted">
           お名前: {app.applicant_name}

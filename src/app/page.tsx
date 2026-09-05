@@ -6,6 +6,7 @@ import {
   memberStatusLabel,
   effectiveStatus,
   isFinished,
+  publicVenueLabel,
   type EventWithCount,
 } from "@/lib/events";
 import { listWinnerStats, type WinnerStats } from "@/lib/adminQueries";
@@ -40,7 +41,7 @@ function EventCard({
         )}
       </div>
       <div className="meta">
-        {formatJst(e.starts_at)} / {e.venue}
+        {formatJst(e.starts_at)} / {publicVenueLabel(e)}
         {!finished && effectiveStatus(e) === "open" && (
           <> / 申込締切 {formatJst(e.closes_at)}</>
         )}
