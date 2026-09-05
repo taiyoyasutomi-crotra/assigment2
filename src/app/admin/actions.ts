@@ -27,6 +27,7 @@ import { parseJstLocal } from "@/lib/format";
 import { effectiveStatus, isFinished } from "@/lib/events";
 import { approveApplicationEmail, deleteApplication } from "@/lib/applications";
 import { runSelection } from "@/lib/selection";
+import { applyDbUpdates } from "@/lib/dbUpdates";
 import { previewCancel, executeCancel, type CancelPreview, type CancelResult } from "@/lib/cancel";
 
 /**
@@ -167,6 +168,13 @@ export async function reopenEventAction(formData: FormData) {
     [eventId, closesAt]
   );
   redirect(`/admin/events/${eventId}?reopened=1`);
+}
+
+/** 未適用のDB変更の適用(管理画面のバナーから。冪等なので何度押しても安全) */
+export async function applyDbUpdatesAction() {
+  await requireAdmin();
+  await applyDbUpdates();
+  redirect(`/admin/events?db_updated=1`);
 }
 
 /** 手動でイベントを完了にする(一覧の「終了したイベント」へ移す) */

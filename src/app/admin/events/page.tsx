@@ -10,6 +10,8 @@ import {
 import { formatJst } from "@/lib/format";
 import { SidebarNav } from "@/components/SidebarNav";
 import { EventForm } from "@/components/EventForm";
+import { hasPendingDbUpdates } from "@/lib/dbUpdates";
+import { applyDbUpdatesAction } from "@/app/admin/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -66,6 +68,7 @@ export default async function AdminEventsPage({
     error?: string;
     deleted?: string;
     saved?: string;
+    db_updated?: string;
   }>;
 }) {
   await requireAdmin();
@@ -76,6 +79,7 @@ export default async function AdminEventsPage({
     ? (sp.tab as Tab)
     : "open";
 
+  const dbPending = await hasPendingDbUpdates();
   const events = await listEvents({ includeDrafts: true });
   // 仕分け: 作成中(下書き) / 募集中(締切前) / 開催中(締切後〜開催まで。当日受付を含む) / 終了
   const drafts = events.filter((e) => e.status === "draft");
@@ -123,6 +127,21 @@ export default async function AdminEventsPage({
   return (
     <main className="container wide">
       <h1>イベント</h1>
+      {dbPending && (
+        <div className="notice error">
+          アプリの更新に必要なデータベースの変更が未適用です。
+          このままではイベントの作成・メール送信などがエラーになります。
+          下のボタンで適用してください(数秒で完了します)。
+          <form action={applyDbUpdatesAction} style={{ marginTop: 8 }}>
+            <button type="submit">データベースの更新を適用する</button>
+          </form>
+        </div>
+      )}
+      {sp.db_updated && (
+        <div className="notice success">
+          データベースの更新を適用しました。そのままお使いいただけます。
+        </div>
+      )}
       {sp.error && <div className="notice error">{sp.error}</div>}
       {sp.deleted && <div className="notice success">イベントを削除しました。</div>}
       {sp.saved && (
