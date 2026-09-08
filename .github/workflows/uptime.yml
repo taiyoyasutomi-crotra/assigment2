@@ -1,0 +1,92 @@
+# 外形監視: 15分ごとに本番サイトの表示とDB接続(/api/health)を確認し、
+# 落ちていたら運営者へ障害メールを送る(復旧時も通知)。
+#
+# 必要な設定(GitHubリポジトリの Settings → Secrets and variables → Actions):
+#   RESEND_API_KEY … Resend のAPIキー(Vercelに設定したものと同じでよい)
+#   ALERT_EMAIL    … 通知先メールアドレス
+# 未設定でもチェック自体は動き、失敗時はGitHubからの「Run failed」通知が届く。
+#
+# スパム抑止: 直前の実行も失敗していた場合は障害メールを重ねて送らない
+# (障害の発生時と復旧時に1通ずつ)。
+name: uptime-check
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  actions: read
+
+concurrency:
+  group: uptime-check
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: サイトの死活確認
+        id: health
+        run: |
+          set +e
+          code_home=$(curl -s -o /dev/null -w "%{http_code}" --max-time 25 https://fanmeeting-checkin.vercel.app/)
+          code_health=$(curl -s -o /dev/null -w "%{http_code}" --max-time 25 https://fanmeeting-checkin.vercel.app/api/health)
+          echo "home=$code_home health=$code_health"
+          echo "code_home=$code_home" >> "$GITHUB_OUTPUT"
+          echo "code_health=$code_health" >> "$GITHUB_OUTPUT"
+          if [ "$code_home" = "200" ] && [ "$code_health" = "200" ]; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 直前の実行結果を取得(通知の重複防止)
+        id: prev
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          prev=$(gh api "repos/${{ github.repository }}/actions/workflows/uptime.yml/runs?per_page=1&status=completed" \
+            --jq '.workflow_runs[0].conclusion' 2>/dev/null || echo "unknown")
+          echo "conclusion=${prev:-unknown}" >> "$GITHUB_OUTPUT"
+          echo "previous run: ${prev:-unknown}"
+
+      - name: 障害メールを送信
+        if: steps.health.outputs.ok == 'false' && steps.prev.outputs.conclusion != 'failure'
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          ALERT_EMAIL: ${{ secrets.ALERT_EMAIL }}
+        run: |
+          if [ -z "$RESEND_API_KEY" ] || [ -z "$ALERT_EMAIL" ]; then
+            echo "RESEND_API_KEY / ALERT_EMAIL が未設定のためメールはスキップ(GitHubのRun failed通知のみ)"
+            exit 0
+          fi
+          curl -s -X POST https://api.resend.com/emails \
+            -H "Authorization: Bearer $RESEND_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -n \
+              --arg to "$ALERT_EMAIL" \
+              --arg home "${{ steps.health.outputs.code_home }}" \
+              --arg health "${{ steps.health.outputs.code_health }}" \
+              '{from: "onboarding@resend.dev", to: [$to],
+                subject: "【障害検知🚨】ファンミ受付システムに接続できません",
+                text: ("ファンミーティング参加受付システムの死活監視でエラーを検知しました。\n\nトップページ: HTTP " + $home + "\nヘルスチェック(DB接続含む): HTTP " + $health + "\n\n確認: https://fanmeeting-checkin.vercel.app/\nVercelのログ: https://vercel.com (fanmeeting-checkin → Logs)\nSupabaseの状態: https://status.supabase.com/\n\n※復旧が確認でき次第、復旧メールをお送りします(監視は15分間隔)。")}')"
+
+      - name: 復旧メールを送信
+        if: steps.health.outputs.ok == 'true' && steps.prev.outputs.conclusion == 'failure'
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          ALERT_EMAIL: ${{ secrets.ALERT_EMAIL }}
+        run: |
+          if [ -z "$RESEND_API_KEY" ] || [ -z "$ALERT_EMAIL" ]; then exit 0; fi
+          curl -s -X POST https://api.resend.com/emails \
+            -H "Authorization: Bearer $RESEND_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -n --arg to "$ALERT_EMAIL" \
+              '{from: "onboarding@resend.dev", to: [$to],
+                subject: "【復旧✅】ファンミ受付システムは正常に戻りました",
+                text: "死活監視で正常応答を確認しました。\nhttps://fanmeeting-checkin.vercel.app/"}')"
+
+      - name: 障害時はこの実行を失敗にする(GitHub通知+次回の重複判定用)
+        if: steps.health.outputs.ok == 'false'
+        run: exit 1
