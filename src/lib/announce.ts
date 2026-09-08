@@ -7,7 +7,7 @@
 // 運営者が編集して保存した場合(event.announce_text)はそちらが優先される。
 import { appUrl } from "@/lib/config";
 import { formatJst } from "@/lib/format";
-import { publicVenueLabel, type EventRow } from "@/lib/events";
+import { PUBLIC_VENUE_LABEL, type EventRow } from "@/lib/events";
 
 export function buildAnnouncement(event: EventRow): string {
   const url = `${appUrl()}/events/${event.id}`;
@@ -18,8 +18,8 @@ export function buildAnnouncement(event: EventRow): string {
     "",
     ...(event.description ? [event.description, ""] : []),
     `【日時】${formatJst(event.starts_at)}`,
-    // 会場の詳細を当選者にだけ知らせる場合は公開用の表記(public_venue)を出す
-    `【場所】${publicVenueLabel(event)}`,
+    // 告知に会場は載せない(2026-09-08 顧客判断)。詳細は当選者への連絡のみ
+    `【場所】${PUBLIC_VENUE_LABEL}`,
     `【定員】${event.capacity}名`,
     "【参加費】無料!🎉",
     "",

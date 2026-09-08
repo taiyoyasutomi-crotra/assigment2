@@ -108,7 +108,6 @@ export type ApplicationStatusView = {
   starts_at: Date;
   ends_at: Date | null;
   venue: string;
-  public_venue: string | null;
   closes_at: Date;
   cancel_deadline: Date | null;
   event_status: string;
@@ -123,7 +122,7 @@ export async function getApplicationByToken(
   const rows = await query<ApplicationStatusView>(
     `select a.id, a.status, a.waitlist_order, a.applicant_name, a.nickname,
             a.email, a.applied_at, a.event_id,
-            e.title, e.starts_at, e.ends_at, e.venue, e.public_venue, e.closes_at,
+            e.title, e.starts_at, e.ends_at, e.venue, e.closes_at,
             e.cancel_deadline,
             e.status as event_status,
             t.id as ticket_id, t.token as ticket_token, t.checked_in_at

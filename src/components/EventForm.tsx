@@ -22,7 +22,6 @@ const FIELDS = [
   "title",
   "startsAt",
   "venue",
-  "publicVenue",
   "description",
   "capacity",
   "closesAt",
@@ -197,20 +196,11 @@ export function EventForm({
           defaultValue={value("venue")}
           placeholder="渋谷カルチャーホール"
         />
-        {msg("venue")}
-      </label>
-      <label className="field">
-        公開用の場所表記(任意。会場を当選者にだけ知らせたい場合)
-        <input
-          type="text"
-          name="publicVenue"
-          defaultValue={value("publicVenue")}
-          placeholder="都内某所(参加確定の方にだけ詳細をお知らせします)"
-        />
         <span className="muted" style={{ fontWeight: 400, fontSize: "0.82rem" }}>
-          入力すると、告知文・申込ページにはこの表記が出て、実際の会場は
-          当選者への連絡にだけ表示されます。空欄なら会場をそのまま公開します。
+          会場は告知文・申込ページには表示されません(「都内某所」と表記)。
+          当選者への連絡にだけ表示されます。
         </span>
+        {msg("venue")}
       </label>
       <label className="field">
         概要(任意)

@@ -8,7 +8,7 @@
 // (タグは送信時に置き換える。{イベント名} 等のタグも書けば使える)。
 import { appUrl } from "@/lib/config";
 import { formatJst } from "@/lib/format";
-import type { EventRow } from "@/lib/events";
+import { PUBLIC_VENUE_LABEL, type EventRow } from "@/lib/events";
 
 /** 当選連絡のデフォルト文面。運営者が編集する際の叩き台 */
 export function defaultWinMessage(
@@ -59,10 +59,7 @@ function fillTags(template: string, values: Record<string, string>): string {
  * (選定前でもこのリンクからキャンセルできる)
  */
 export function buildApplyAckMail(input: {
-  event: Pick<
-    EventRow,
-    "title" | "starts_at" | "venue" | "public_venue" | "closes_at"
-  >;
+  event: Pick<EventRow, "title" | "starts_at" | "closes_at">;
   applicantName: string;
   applicationToken: string;
 }): { subject: string; body: string } {
@@ -74,8 +71,8 @@ export function buildApplyAckMail(input: {
       `「${event.title}」へのお申込みを受け付けました!`,
       "",
       `【日時】${formatJst(event.starts_at)}`,
-      // 会場の詳細は当選者にだけ知らせる(公開用の表記を使う)
-      `【場所】${event.public_venue?.trim() || event.venue}`,
+      // 会場の詳細は当選者にだけ知らせる(2026-09-08 顧客判断)
+      `【場所】${PUBLIC_VENUE_LABEL}`,
       `【申込締切】${formatJst(event.closes_at)}`,
       "",
       "先着順のため、締切後に申込順で結果が確定し、メールでご連絡します",
