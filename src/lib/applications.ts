@@ -30,8 +30,10 @@ export async function applyToEvent(
   eventId: string,
   input: { name: string; nickname: string; email: string }
 ): Promise<ApplyResult> {
-  const name = input.name.trim();
-  const nickname = input.nickname.trim();
+  // 名前は表記ゆれを正規化して保存する: 全角スペース→半角・連続は1つ・前後は除去
+  // (スペースなし・半角・全角のどの入力でも受け付け、表示・照合を揃える)
+  const name = input.name.replace(/\s+/g, " ").trim();
+  const nickname = input.nickname.replace(/\s+/g, " ").trim();
   const email = input.email.trim();
   if (!name) return { ok: false, error: "invalid_name" };
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {

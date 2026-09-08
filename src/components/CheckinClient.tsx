@@ -132,8 +132,11 @@ export function CheckinClient({ eventId }: { eventId: string }) {
 
   const valid = (winners ?? []).filter((w) => w.token && !w.revoked_at);
   const checkedCount = valid.filter((w) => w.checked_in_at).length;
+  // 名前の照合はスペースを無視する(スペースなし・半角・全角のどの書き方でも
+  // 同じ人としてヒットさせる。例:「山田花子」で「山田 花子」が見つかる)
+  const norm = (s: string) => s.toLowerCase().replace(/\s+/g, "");
   const shown = (winners ?? []).filter(
-    (w) => !filter || w.display_name.toLowerCase().includes(filter.toLowerCase())
+    (w) => !filter || norm(w.display_name).includes(norm(filter))
   );
 
   return (
@@ -161,7 +164,7 @@ export function CheckinClient({ eventId }: { eventId: string }) {
           type="text"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          placeholder="表示名で絞り込み"
+          placeholder="お名前で絞り込み(スペースの有無は問いません)"
           style={{ flex: 1, minWidth: 0 }}
         />
         <button type="button" className="secondary" onClick={() => void loadWinners()}>
